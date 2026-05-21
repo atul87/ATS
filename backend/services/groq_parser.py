@@ -1,5 +1,5 @@
 import os
-import json 
+import json
 import logging
 import re
 from datetime import date
@@ -7,12 +7,12 @@ from typing import Dict, Iterable
 
 from groq import Groq
 
-logger=logging.getLogger('ats_resume_scorer')
+logger = logging.getLogger("ats_resume_scorer")
 
 
-GROQ_MODEL='llama-3.3-70b-versatile'
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
-_client=None
+_client = None
 
 COMMON_SKILLS = {
     ".NET",
@@ -128,9 +128,7 @@ SECTION_ALIASES = {
 }
 
 HEADING_TO_SECTION = {
-    alias: section
-    for section, aliases in SECTION_ALIASES.items()
-    for alias in aliases
+    alias: section for section, aliases in SECTION_ALIASES.items() for alias in aliases
 }
 
 STOP_WORDS = {
@@ -176,15 +174,15 @@ MONTHS = {
 }
 
 
-def _get_client()->Groq | None:
+def _get_client() -> Groq | None:
     global _client
     if _client is None:
-        api_key=os.getenv('GROQ_API_KEY')
+        api_key = os.getenv("GROQ_API_KEY")
 
         if not api_key:
             logger.info("GROQ_API_KEY is not set; using local regex parser fallback.")
             return None
-        _client=Groq(api_key=api_key)
+        _client = Groq(api_key=api_key)
     return _client
 
 
@@ -306,7 +304,9 @@ def _extract_summary(text: str, sections: dict[str, str]) -> str:
         if _normalize_space(paragraph)
     ]
     for paragraph in paragraphs[1:3]:
-        if len(paragraph.split()) >= 8 and not re.search(r"@|linkedin\.com|github\.com", paragraph, re.I):
+        if len(paragraph.split()) >= 8 and not re.search(
+            r"@|linkedin\.com|github\.com", paragraph, re.I
+        ):
             return paragraph
     return ""
 
@@ -356,7 +356,9 @@ def _calculate_date_range_months(text: str) -> int:
         rf"((?:{month_pattern})\.?\s+\d{{4}}|present|current)\b",
         re.I,
     )
-    year_range = re.compile(r"\b(19\d{2}|20\d{2})\s*(?:-|–|—|to)\s*((?:19|20)\d{2}|present|current)\b", re.I)
+    year_range = re.compile(
+        r"\b(19\d{2}|20\d{2})\s*(?:-|–|—|to)\s*((?:19|20)\d{2}|present|current)\b", re.I
+    )
 
     today = date.today()
     current_index = today.year * 12 + today.month
@@ -367,7 +369,9 @@ def _calculate_date_range_months(text: str) -> int:
         if end_raw in {"present", "current"}:
             end = current_index
         else:
-            end_month, end_year = re.match(rf"({month_pattern})\.?\s+(\d{{4}})", end_raw, re.I).groups()
+            end_month, end_year = re.match(
+                rf"({month_pattern})\.?\s+(\d{{4}})", end_raw, re.I
+            ).groups()
             end = _month_index(end_month, end_year)
         total += max(0, end - start + 1)
 
@@ -396,7 +400,9 @@ def _extract_experience_entries(text: str, sections: dict[str, str]) -> list[dic
     if not experience_text.strip() and not duration_months:
         return []
 
-    first_line = next((line.strip(" •*-") for line in experience_text.splitlines() if line.strip()), "")
+    first_line = next(
+        (line.strip(" •*-") for line in experience_text.splitlines() if line.strip()), ""
+    )
     return [
         {
             "job_title": first_line[:80],
@@ -440,7 +446,9 @@ def _extract_projects(sections: dict[str, str]) -> list[dict]:
     if not project_text:
         return []
 
-    title = next((line.strip(" •*-") for line in project_text.splitlines() if line.strip()), "Project")
+    title = next(
+        (line.strip(" •*-") for line in project_text.splitlines() if line.strip()), "Project"
+    )
     return [
         {
             "title": title[:100],
@@ -456,7 +464,9 @@ def _extract_certifications(text: str, sections: dict[str, str]) -> list[str]:
     for line in cert_text.splitlines():
         candidates.extend(re.split(r"[,;|]", line))
 
-    for match in re.finditer(r"\b(?:AWS|Azure|Google|Microsoft|Certified)[^\n,;]{0,80}", text or "", re.I):
+    for match in re.finditer(
+        r"\b(?:AWS|Azure|Google|Microsoft|Certified)[^\n,;]{0,80}", text or "", re.I
+    ):
         candidates.append(match.group(0))
 
     return _unique_preserve_order(candidates)[:10]
@@ -527,7 +537,9 @@ def _extract_key_responsibilities(text: str, sections: dict[str, str]) -> list[s
         cleaned = line.strip(" •*-")
         if len(cleaned.split()) >= 4 and (
             re.match(r"^\s*(?:[•*\-]|\d+\.)", line)
-            or re.search(r"\b(?:build|develop|design|manage|lead|own|collaborate|implement)\b", cleaned, re.I)
+            or re.search(
+                r"\b(?:build|develop|design|manage|lead|own|collaborate|implement)\b", cleaned, re.I
+            )
         ):
             responsibilities.append(cleaned)
     return _unique_preserve_order(responsibilities)[:12]
@@ -561,7 +573,9 @@ def _local_basic_parse_jd(raw_text: str) -> Dict:
         "job_title": _extract_jd_title(text),
         "required_skills": required_skills,
         "preferred_skills": [skill for skill in preferred_skills if skill not in required_skills],
-        "experience_required": _normalize_space(experience_match.group(0)) if experience_match else "",
+        "experience_required": (
+            _normalize_space(experience_match.group(0)) if experience_match else ""
+        ),
         "education_required": _normalize_space(education_match.group(0)) if education_match else "",
         "key_responsibilities": _extract_key_responsibilities(text, sections),
         "keywords": keywords,
@@ -569,6 +583,7 @@ def _local_basic_parse_jd(raw_text: str) -> Dict:
         "confidence": 0.58,
     }
     return _validate_jd_result(result)
+
 
 RESUME_SYSTEM_PROMPT = (
     "You are a resume parser. Extract information from the resume "
@@ -623,19 +638,21 @@ Important instructions:
 Resume Text:
 {raw_text}"""
 
-def _call_groq(client:Groq, system_prompt:str, user_prompt:str)->str:
 
-    response=client.chat.completions.create(
-        model=GROQ_MODEL, 
+def _call_groq(client: Groq, system_prompt: str, user_prompt: str) -> str:
+
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
         messages=[
-            {'role': 'system', 'content': system_prompt},
-            {'role': 'user', 'content': user_prompt}
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
         ],
         temperature=0.0,
-        max_tokens=4096
+        max_tokens=4096,
     )
 
     return response.choices[0].message.content.strip()
+
 
 def _try_parse_json(text: str) -> dict | None:
 
@@ -645,7 +662,7 @@ def _try_parse_json(text: str) -> dict | None:
 
         # Remove opening fence (```json or ```)
         first_newline = cleaned.index("\n") if "\n" in cleaned else len(cleaned)
-        cleaned = cleaned[first_newline + 1:]
+        cleaned = cleaned[first_newline + 1 :]
         # Remove closing fence
         if cleaned.endswith("```"):
             cleaned = cleaned[:-3]
@@ -655,26 +672,25 @@ def _try_parse_json(text: str) -> dict | None:
         return json.loads(cleaned)
     except json.JSONDecodeError:
         return None
-    
-def parse_resume(raw_text: str)->Dict:
 
-    client=_get_client()
+
+def parse_resume(raw_text: str) -> Dict:
+
+    client = _get_client()
     if client is None:
         return _local_basic_parse_resume(raw_text)
 
-    prompt=RESUME_USER_PROMPT.format(raw_text=raw_text)
-    raw_response=_call_groq(client, RESUME_SYSTEM_PROMPT, prompt)
-    result=_try_parse_json(raw_response)
+    prompt = RESUME_USER_PROMPT.format(raw_text=raw_text)
+    raw_response = _call_groq(client, RESUME_SYSTEM_PROMPT, prompt)
+    result = _try_parse_json(raw_response)
 
     if result is not None:
         return _validate_resume_result(result)
-    
 
     logger.warning("Groq resume parse: first attempt returned invalid JSON, retrying...")
     strict_prompt = (
         "Your previous response was not valid JSON. "
-        "Return ONLY the raw JSON object, no markdown, no explanation, no code fences.\n\n"
-        + prompt
+        "Return ONLY the raw JSON object, no markdown, no explanation, no code fences.\n\n" + prompt
     )
     raw_response = _call_groq(client, RESUME_SYSTEM_PROMPT, strict_prompt)
     result = _try_parse_json(raw_response)
@@ -684,7 +700,8 @@ def parse_resume(raw_text: str)->Dict:
     raise ValueError(
         f"Groq returned unparseable response after retry. Raw response:\n{raw_response[:500]}"
     )
-    
+
+
 JD_SYSTEM_PROMPT = (
     "You are a job description parser. Extract information and "
     "return ONLY a valid JSON object. No explanation, no markdown."
@@ -711,6 +728,7 @@ Important instructions:
 Job Description Text:
 {raw_text}"""
 
+
 def parse_job_description(raw_text: str) -> Dict:
     client = _get_client()
     if client is None:
@@ -726,8 +744,7 @@ def parse_job_description(raw_text: str) -> Dict:
     logger.warning("Groq JD parse: first attempt returned invalid JSON, retrying...")
     strict_prompt = (
         "Your previous response was not valid JSON. "
-        "Return ONLY the raw JSON object, no markdown, no explanation, no code fences.\n\n"
-        + prompt
+        "Return ONLY the raw JSON object, no markdown, no explanation, no code fences.\n\n" + prompt
     )
     raw_response = _call_groq(client, JD_SYSTEM_PROMPT, strict_prompt)
     result = _try_parse_json(raw_response)
@@ -738,9 +755,10 @@ def parse_job_description(raw_text: str) -> Dict:
         f"Groq returned unparseable response after retry. Raw response:\n{raw_response[:500]}"
     )
 
-#it will make sure, that the parse json has all the valid fields we expect
+
+# it will make sure, that the parse json has all the valid fields we expect
 def _validate_jd_result(result: dict) -> dict:
-    
+
     defaults = {
         "job_title": "",
         "required_skills": [],
@@ -760,7 +778,7 @@ def _validate_jd_result(result: dict) -> dict:
     return result
 
 
-#to make sure the parse json has all the valid json fields
+# to make sure the parse json has all the valid json fields
 def _validate_resume_result(result: dict) -> dict:
 
     defaults = {
@@ -781,12 +799,12 @@ def _validate_resume_result(result: dict) -> dict:
     for key, default in defaults.items():
         if key not in result or result[key] is None:
             result[key] = default
-            
+
         # Ensure list fields are actually lists
         if isinstance(default, list) and not isinstance(result[key], list):
             result[key] = default
 
-    #Validate experience entries
+    # Validate experience entries
     for exp in result.get("experience", []):
         if not isinstance(exp, dict):
             continue
@@ -796,13 +814,13 @@ def _validate_resume_result(result: dict) -> dict:
         exp.setdefault("end_date", "")
         exp.setdefault("duration_months", 0)
         exp.setdefault("description", "")
-        #Ensure duration_months is an int
+        # Ensure duration_months is an int
         try:
             exp["duration_months"] = int(exp["duration_months"])
         except (ValueError, TypeError):
             exp["duration_months"] = 0
 
-    #Validate project entries
+    # Validate project entries
     for proj in result.get("projects", []):
         if not isinstance(proj, dict):
             continue

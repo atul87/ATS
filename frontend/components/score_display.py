@@ -4,14 +4,13 @@ import streamlit as st
 
 from frontend.components._helpers import get_score_color, get_score_emoji
 
-
 # Component max scores match backend/core/config.py SCORE_WEIGHTS.
 # (Backend returns each component's score on its own scale, not 0–100.)
 COMPONENTS = [
-    ("Formatting",        "formatting",        20, "📝"),
-    ("Keywords & Skills", "keywords",          25, "🔑"),
-    ("Content Quality",   "content",           25, "📄"),
-    ("Skill Validation",  "skill_validation",  15, "✅"),
+    ("Formatting", "formatting", 20, "📝"),
+    ("Keywords & Skills", "keywords", 25, "🔑"),
+    ("Content Quality", "content", 25, "📄"),
+    ("Skill Validation", "skill_validation", 15, "✅"),
     ("ATS Compatibility", "ats_compatibility", 15, "🤖"),
 ]
 

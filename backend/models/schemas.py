@@ -1,12 +1,14 @@
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
+
 class ComponentScores(BaseModel):
     formatting: float
     keywords: float
     content: float
     skill_validation: float
     ats_compatibility: float
+
 
 class JDComparison(BaseModel):
     match_percentage: float
@@ -15,12 +17,14 @@ class JDComparison(BaseModel):
     missing_keywords: List[str]
     skills_gap: List[str]
 
+
 class SkillValidationDetails(BaseModel):
-    validated: List[Dict[str, Any]] = []       # [{'skill': str, 'projects': [str]}]
-    unvalidated: List[str] = []                # ['Flask', 'A/B Testing', ...]
+    validated: List[Dict[str, Any]] = []  # [{'skill': str, 'projects': [str]}]
+    unvalidated: List[str] = []  # ['Flask', 'A/B Testing', ...]
     total: int = 0
     validated_count: int = 0
     validation_pct: float = 0.0
+
 
 class IssueDetail(BaseModel):
     issue_title: str
@@ -31,6 +35,7 @@ class IssueDetail(BaseModel):
     how_to_fix: str
     action_items: List[str] = []
     example_improvement: str
+
 
 class AnalysisResponse(BaseModel):
     ATS_score: float

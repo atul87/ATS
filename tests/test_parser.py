@@ -5,8 +5,7 @@ def test_resume_parser_uses_local_fallback_without_groq_key(monkeypatch):
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     groq_parser._client = None
 
-    result = groq_parser.parse_resume(
-        """
+    result = groq_parser.parse_resume("""
         Jane Doe
         jane@example.com | +1 415 555 0134
         Professional Summary: Backend engineer with 3+ years experience building APIs.
@@ -20,8 +19,7 @@ def test_resume_parser_uses_local_fallback_without_groq_key(monkeypatch):
         - Built a resume analyzer with Python and Docker.
         Education:
         Bachelor of Technology, Example University, 2021
-        """
-    )
+        """)
 
     assert result["parser_source"] == "local_regex"
     assert result["confidence"] == 0.58
@@ -35,8 +33,7 @@ def test_job_description_parser_uses_local_fallback_without_groq_key(monkeypatch
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     groq_parser._client = None
 
-    result = groq_parser.parse_job_description(
-        """
+    result = groq_parser.parse_job_description("""
         Title: Backend Engineer
         Required: Python, FastAPI, Docker, SQL and PostgreSQL.
         Preferred: AWS and Kubernetes.
@@ -45,8 +42,7 @@ def test_job_description_parser_uses_local_fallback_without_groq_key(monkeypatch
         - Improve service reliability.
         3+ years of backend engineering experience required.
         Bachelor's degree preferred.
-        """
-    )
+        """)
 
     assert result["parser_source"] == "local_regex"
     assert {"Python", "FastAPI", "Docker"}.issubset(set(result["required_skills"]))
@@ -60,8 +56,7 @@ def test_fallback_parser_handles_malformed_unicode(monkeypatch):
     groq_parser._client = None
 
     result = groq_parser.parse_resume(
-        "John Dœ • Pythøn • डेवलपर • 数据科学 \ud83d\x00\n"
-        "Skills: Python, Docker"
+        "John Dœ • Pythøn • डेवलपर • 数据科学 \ud83d\x00\n" "Skills: Python, Docker"
     )
 
     assert result["parser_source"] == "local_regex"

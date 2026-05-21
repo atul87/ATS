@@ -41,6 +41,10 @@ PyJWT[crypto]>=2.8           # verifies Supabase access tokens (HS256)
 # -- Tests --
 pytest>=8.0
 
+# -- Code quality --
+black>=26.0
+ruff>=0.15
+
 # ── Frontend ──
 streamlit>=1.32
 requests>=2.31

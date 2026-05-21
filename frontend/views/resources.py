@@ -3,15 +3,15 @@ import streamlit as st
 
 def render():
     """Render the resources page"""
-    
+
     st.title("📚 Resources & Tips")
     st.markdown("Learn how to optimize your resume for ATS systems")
-    
+
     # ATS Tips
     st.markdown("## 🎯 ATS Optimization Tips")
-    
+
     col1, col2 = st.columns(2)
-    
+
     with col1:
         st.markdown("""
         ### ✅ Do's
@@ -23,7 +23,7 @@ def render():
         - Use standard fonts (Arial, Calibri, Times New Roman)
         - Save as PDF or DOCX
         """)
-    
+
     with col2:
         st.markdown("""
         ### ❌ Don'ts
@@ -35,14 +35,14 @@ def render():
         - Don't keyword stuff
         - Avoid abbreviations without spelling out first
         """)
-    
+
     st.markdown("---")
-    
+
     # Common ATS Keywords
     st.markdown("## 🔑 Common ATS Keywords by Industry")
-    
+
     tab1, tab2, tab3 = st.tabs(["💻 Tech", "💼 Business", "🎨 Creative"])
-    
+
     with tab1:
         st.markdown("""
         **Software Development:**
@@ -51,7 +51,7 @@ def render():
         - Tools (Git, Docker, Kubernetes)
         - Methodologies (Agile, Scrum, CI/CD)
         """)
-    
+
     with tab2:
         st.markdown("""
         **Business & Management:**
@@ -61,7 +61,7 @@ def render():
         - Strategic planning
         - Team leadership
         """)
-    
+
     with tab3:
         st.markdown("""
         **Creative & Design:**
@@ -71,9 +71,9 @@ def render():
         - Brand identity
         - Visual communication
         """)
-    
+
     st.markdown("---")
-    
+
     # Resume Templates
     st.markdown("## 📄 ATS-Friendly Resume Templates")
     st.info("Coming soon: Downloadable ATS-optimized resume templates")

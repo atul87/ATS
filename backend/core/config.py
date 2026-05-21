@@ -50,9 +50,7 @@ JD_SEMANTIC_WEIGHT = 0.4
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")  # service_role — DB writes (bypasses RLS)
-SUPABASE_ANON_KEY = os.getenv(
-    "SUPABASE_ANON_KEY", ""
-)  # public anon — frontend auth calls
+SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")  # public anon — frontend auth calls
 SUPABASE_JWT_SECRET = os.getenv(
     "SUPABASE_JWT_SECRET", ""
 )  # used by backend to verify access tokens

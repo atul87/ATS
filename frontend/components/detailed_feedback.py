@@ -4,7 +4,6 @@ import streamlit as st
 
 from frontend.components._helpers import get_severity_style
 
-
 SEVERITY_ORDER = ["critical", "high", "medium", "low"]
 
 

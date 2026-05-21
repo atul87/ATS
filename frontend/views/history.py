@@ -56,8 +56,12 @@ def render() -> None:
                 st.metric("Keywords", f"{component_scores.get('keywords', 0):.0f}/25")
                 st.metric("Content", f"{component_scores.get('content', 0):.0f}/25")
             with c3:
-                st.metric("Skill Validation", f"{component_scores.get('skill_validation', 0):.0f}/15")
-                st.metric("ATS Compatibility", f"{component_scores.get('ats_compatibility', 0):.0f}/15")
+                st.metric(
+                    "Skill Validation", f"{component_scores.get('skill_validation', 0):.0f}/15"
+                )
+                st.metric(
+                    "ATS Compatibility", f"{component_scores.get('ats_compatibility', 0):.0f}/15"
+                )
 
             if jd_comparison:
                 st.markdown(f"**JD Match:** {jd_comparison.get('match_percentage', 0):.0f}%")

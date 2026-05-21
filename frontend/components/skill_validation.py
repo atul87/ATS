@@ -31,7 +31,11 @@ def display_skill_validation(analysis: Dict[str, Any]) -> None:
                 similarity = entry.get("similarity")
 
                 project_text = ", ".join(projects[:3]) if projects else "experience section"
-                sim_text = f" ({similarity * 100:.0f}% match)" if isinstance(similarity, (int, float)) else ""
+                sim_text = (
+                    f" ({similarity * 100:.0f}% match)"
+                    if isinstance(similarity, (int, float))
+                    else ""
+                )
                 st.markdown(f"- **{skill}**{sim_text} — demonstrated in: {project_text}")
 
     if unvalidated:

@@ -104,10 +104,26 @@ To run all tests:
 pytest tests/ -v
 ```
 
+## Quality Checks
+
+Run the same checks used by CI before pushing:
+
+```bash
+python -m compileall backend frontend tests -q
+ruff check .
+black --check .
+pytest tests/ -v
+```
+
+To format code locally:
+
+```bash
+black .
+```
+
 ## Notes for students
 
 - **Never commit `.env` or `secrets.toml`** — they hold API keys. Both are in `.gitignore`; check before you push.
 - The first run downloads the Sentence Transformer model (~80 MB). It's cached afterwards.
 - **Local Fallback Mode**: If you don't have a Groq key configured (`GROQ_API_KEY` is empty), the backend automatically falls back to a local regex/keyword-based parser. Scoring, feedback, and PDF exports still function, although parsing accuracy is reduced.
 - `jupyter notebooks/` and `ml model/` are for experimentation and aren't required to run the app.
-

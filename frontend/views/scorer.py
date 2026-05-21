@@ -34,7 +34,9 @@ def _show_backend_error(exc: Exception) -> None:
     if isinstance(exc, requests.ConnectionError):
         st.error("Could not reach the backend. Is `uvicorn backend.main:app` running on port 8000?")
     elif isinstance(exc, requests.Timeout):
-        st.error("The backend took too long to respond. Try a smaller resume or check the server logs.")
+        st.error(
+            "The backend took too long to respond. Try a smaller resume or check the server logs."
+        )
     elif isinstance(exc, requests.HTTPError) and exc.response is not None:
         try:
             detail = exc.response.json().get("detail", exc.response.text)
@@ -154,7 +156,9 @@ def _render_export_buttons(analysis: dict) -> None:
 
 def render() -> None:
     st.title("🎯 ATS Resume Scorer")
-    st.markdown("Upload your resume — and optionally a job description — for a comprehensive analysis.")
+    st.markdown(
+        "Upload your resume — and optionally a job description — for a comprehensive analysis."
+    )
 
     with st.sidebar:
         st.markdown("---")
@@ -205,7 +209,9 @@ def render() -> None:
     st.session_state.pop("scorer_pdf_bytes", None)
     st.session_state.pop("scorer_analysis", None)
 
-    job_description = _read_jd(jd_file, jd_text) if analysis_mode == "Job Description Comparison" else ""
+    job_description = (
+        _read_jd(jd_file, jd_text) if analysis_mode == "Job Description Comparison" else ""
+    )
 
     try:
         with st.spinner("Analyzing your resume... this can take 10–30 seconds."):

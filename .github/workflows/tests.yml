@@ -23,5 +23,14 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
 
+      - name: Compile project code
+        run: python -m compileall backend frontend tests -q
+
+      - name: Run Ruff
+        run: ruff check .
+
+      - name: Check formatting
+        run: black --check .
+
       - name: Run tests
         run: python -m pytest tests -v

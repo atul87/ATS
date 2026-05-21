@@ -2,9 +2,10 @@ import streamlit as st
 
 
 def render():
-    
+
     # Landing page CSS
-    st.markdown("""
+    st.markdown(
+        """
     <style>
         .main-header {
             text-align: center;
@@ -21,31 +22,36 @@ def render():
             margin-bottom: 0.5rem;
         }
     </style>
-    """, unsafe_allow_html=True)
-    
+    """,
+        unsafe_allow_html=True,
+    )
+
     # Hero Section
-    st.markdown("""
+    st.markdown(
+        """
     <div class="main-header">
         <h1>🎯 ATS Resume Scorer</h1>
         <h3>Optimize Your Resume for Applicant Tracking Systems</h3>
         <p>Get instant feedback on your resume's ATS compatibility with AI-powered analysis</p>
     </div>
-    """, unsafe_allow_html=True)
-    
+    """,
+        unsafe_allow_html=True,
+    )
+
     # Call-to-Action Button
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if st.button("🚀 Start Analyzing Your Resume", use_container_width=True, type="primary"):
-            st.session_state.current_view = 'scorer'
+            st.session_state.current_view = "scorer"
             st.rerun()
-    
+
     st.markdown("---")
-    
+
     # Features Overview
     st.markdown("## ✨ Key Features")
-    
+
     col1, col2, col3 = st.columns(3)
-    
+
     with col1:
         st.markdown("""
         ### 📊 Comprehensive Scoring
@@ -56,7 +62,7 @@ def render():
         - Skill Validation (15%)
         - ATS Compatibility (15%)
         """)
-    
+
     with col2:
         st.markdown("""
         ### 🔍 Skill Validation
@@ -64,7 +70,7 @@ def render():
         
         **No more empty claims!**
         """)
-    
+
     with col3:
         st.markdown("""
         ### 🔒 Privacy First
@@ -72,26 +78,26 @@ def render():
         
         **100% Private & Secure**
         """)
-    
+
     st.markdown("---")
-    
+
     # How It Works
     st.markdown("## 🚀 How It Works")
-    
+
     col1, col2, col3 = st.columns(3)
-    
+
     with col1:
         st.markdown("""
         #### 1️⃣ Upload Your Resume
         Support for PDF, DOC, and DOCX formats
         """)
-    
+
     with col2:
         st.markdown("""
         #### 2️⃣ AI Analysis
         Our local AI models analyze your resume across multiple dimensions
         """)
-    
+
     with col3:
         st.markdown("""
         #### 3️⃣ Get Actionable Feedback

@@ -7,7 +7,7 @@ def get_score_color(score: float) -> Tuple[str, str]:
         return "#2e7d32", "#e8f5e9"  # green
     if score >= 60:
         return "#f57c00", "#fff3e0"  # orange
-    return "#c62828", "#ffebee"      # red
+    return "#c62828", "#ffebee"  # red
 
 
 def get_score_emoji(score: float) -> str:

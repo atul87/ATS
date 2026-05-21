@@ -6,7 +6,6 @@ from pypdf import PdfWriter
 
 from backend.services import resume_parser
 
-
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
@@ -116,7 +115,9 @@ def test_analyze_resume_accepts_empty_job_description(client, monkeypatch):
 
 
 def test_analyze_resume_rejects_image_only_pdf(client, monkeypatch):
-    monkeypatch.setattr(resume_parser.magic, "from_buffer", lambda *_args, **_kwargs: "application/pdf")
+    monkeypatch.setattr(
+        resume_parser.magic, "from_buffer", lambda *_args, **_kwargs: "application/pdf"
+    )
 
     response = client.post(
         "/api/v1/analyze-resume",

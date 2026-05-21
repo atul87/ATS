@@ -16,19 +16,15 @@ def calculate_semantic_similarity(
     resume_text: str, jd_text: str, embedder: SentenceTransformer
 ) -> float:
     resume_emb = embedder.encode(resume_text[:5000], convert_to_tensor=False)
-    jd_emb     = embedder.encode(jd_text[:5000], convert_to_tensor=False)
+    jd_emb = embedder.encode(jd_text[:5000], convert_to_tensor=False)
 
-    similarity = np.dot(resume_emb, jd_emb) / (
-        np.linalg.norm(resume_emb) * np.linalg.norm(jd_emb)
-    )
+    similarity = np.dot(resume_emb, jd_emb) / (np.linalg.norm(resume_emb) * np.linalg.norm(jd_emb))
     return float(np.clip(similarity, 0.0, 1.0))
 
 
-def identify_matched_keywords(
-    resume_keywords: List[str], jd_keywords: List[str]
-) -> List[str]:
+def identify_matched_keywords(resume_keywords: List[str], jd_keywords: List[str]) -> List[str]:
     result = fuzzy_match_keywords(resume_keywords, jd_keywords, threshold=80)
-    return result['matched']
+    return result["matched"]
 
 
 def identify_missing_keywords(
@@ -36,17 +32,15 @@ def identify_missing_keywords(
 ) -> List[str]:
 
     result = fuzzy_match_keywords(resume_keywords, jd_keywords, threshold=80)
-    return result['missing'][:top_n]
+    return result["missing"][:top_n]
 
 
-def analyze_skills_gap(
-    resume_skills: List[str], jd_text: str, nlp: spacy.Language
-) -> List[str]:
-    doc       = nlp(jd_text[:5000])
+def analyze_skills_gap(resume_skills: List[str], jd_text: str, nlp: spacy.Language) -> List[str]:
+    doc = nlp(jd_text[:5000])
     jd_skills = set()
 
     for ent in doc.ents:
-        if ent.label_ in ['PRODUCT', 'ORG', 'LANGUAGE']:
+        if ent.label_ in ["PRODUCT", "ORG", "LANGUAGE"]:
             jd_skills.add(ent.text.lower())
 
     for chunk in doc.noun_chunks:
@@ -99,17 +93,15 @@ def compare_resume_with_jd(
     nlp: spacy.Language,
 ) -> Dict:
     semantic_similarity = calculate_semantic_similarity(resume_text, jd_text, embedder)
-    matched_keywords    = identify_matched_keywords(resume_keywords, jd_keywords)
-    missing_keywords    = identify_missing_keywords(resume_keywords, jd_keywords)
-    skills_gap          = analyze_skills_gap(resume_skills, jd_text, nlp)
-    match_percentage    = calculate_match_percentage(
-        resume_keywords, jd_keywords, semantic_similarity
-    )
+    matched_keywords = identify_matched_keywords(resume_keywords, jd_keywords)
+    missing_keywords = identify_missing_keywords(resume_keywords, jd_keywords)
+    skills_gap = analyze_skills_gap(resume_skills, jd_text, nlp)
+    match_percentage = calculate_match_percentage(resume_keywords, jd_keywords, semantic_similarity)
 
     return {
-        'match_percentage':    match_percentage,
-        'semantic_similarity': semantic_similarity,
-        'matched_keywords':    matched_keywords,
-        'missing_keywords':    missing_keywords,
-        'skills_gap':          skills_gap,
+        "match_percentage": match_percentage,
+        "semantic_similarity": semantic_similarity,
+        "matched_keywords": matched_keywords,
+        "missing_keywords": missing_keywords,
+        "skills_gap": skills_gap,
     }
