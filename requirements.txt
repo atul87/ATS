@@ -49,3 +49,5 @@ ruff>=0.15
 streamlit>=1.32
 requests>=2.31
 supabase>=2.4                # frontend auth client (email/password + OAuth)
+reportlab>=4.0
+Pillow>=10.0
