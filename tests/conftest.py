@@ -8,7 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.api.auth import get_current_user
-from backend.database import supabase_db
+from backend.database.store import get_db
+from backend.database.base import DocumentStore
 from backend.main import app
 from backend.services import groq_parser
 
@@ -43,42 +44,44 @@ def isolated_app(monkeypatch):
     app.state.nlp = FakeNLP()
     app.state.embedder = FakeEmbedder()
     app.dependency_overrides[get_current_user] = lambda: "test-user"
-
     history = []
     id_counter = itertools.count(1)
 
-    async def fake_save_analysis(user_id, filename, analysis_result):
-        analysis_id = str(next(id_counter))
-        history.append(
-            {
-                "id": analysis_id,
-                "user_id": user_id,
-                "filename": filename,
-                "resume_name": filename,
-                "job_title": "Software Engineer",
-                "ats_score": analysis_result.get("ats_score", 0),
-                "keyword_match": analysis_result.get("keyword_match", 0),
-                "missing_keywords": analysis_result.get("missing_keywords", []),
-                "date": datetime.now(timezone.utc).isoformat(),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "analysis_result": analysis_result,
-            }
-        )
-        return analysis_id
+    class FakeStore(DocumentStore):
+        def __init__(self, history_list, id_cnt):
+            self.history = history_list
+            self.id_counter = id_cnt
 
-    async def fake_get_user_history(user_id):
-        return [item for item in history if item["user_id"] == user_id]
+        async def save_analysis(self, user_id, filename, analysis_result):
+            analysis_id = str(next(self.id_counter))
+            self.history.append(
+                {
+                    "id": analysis_id,
+                    "user_id": user_id,
+                    "filename": filename,
+                    "resume_name": filename,
+                    "job_title": "Software Engineer",
+                    "ats_score": analysis_result.get("ats_score", 0),
+                    "keyword_match": analysis_result.get("keyword_match", 0),
+                    "missing_keywords": analysis_result.get("missing_keywords", []),
+                    "date": datetime.now(timezone.utc).isoformat(),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "analysis_result": analysis_result,
+                }
+            )
+            return analysis_id
 
-    async def fake_delete_analysis(analysis_id, user_id):
-        for index, item in enumerate(history):
-            if item["id"] == analysis_id and item["user_id"] == user_id:
-                del history[index]
-                return True
-        return False
+        async def get_user_history(self, user_id):
+            return [item for item in self.history if item["user_id"] == user_id]
 
-    monkeypatch.setattr(supabase_db, "save_analysis", fake_save_analysis)
-    monkeypatch.setattr(supabase_db, "get_user_history", fake_get_user_history)
-    monkeypatch.setattr(supabase_db, "delete_analysis", fake_delete_analysis)
+        async def delete_analysis(self, analysis_id, user_id):
+            for index, item in enumerate(self.history):
+                if item["id"] == analysis_id and item["user_id"] == user_id:
+                    del self.history[index]
+                    return True
+            return False
+
+    app.dependency_overrides[get_db] = lambda: FakeStore(history, id_counter)
 
     yield history
 
@@ -121,3 +124,73 @@ def analysis_payload():
         "jd_comparison": None,
         "interpretation": "Test interpretation",
     }
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    rep = outcome.get_result()
+    setattr(item, "rep_" + rep.when, rep)
+
+
+@pytest.fixture(autouse=True)
+def playwright_artifacts(request):
+    if "page" not in request.fixturenames:
+        yield
+        return
+
+    page = request.getfixturevalue("page")
+    context = page.context
+
+    try:
+        context.tracing.start(screenshots=True, snapshots=True, sources=True)
+    except Exception:
+        pass
+
+    yield page
+
+    node = request.node
+    failed = False
+    if hasattr(node, "rep_call") and node.rep_call.failed:
+        failed = True
+    elif hasattr(node, "rep_setup") and node.rep_setup.failed:
+        failed = True
+
+    if failed:
+        import shutil
+        from pathlib import Path
+
+        artifacts_dir = Path("artifacts")
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
+        
+        test_name = node.name.replace("[", "_").replace("]", "_")
+
+        screenshot_path = artifacts_dir / f"failure_{test_name}.png"
+        try:
+            page.screenshot(path=str(screenshot_path), full_page=True)
+            print(f"\nCaptured failure screenshot to {screenshot_path}")
+        except Exception as e:
+            print(f"Failed to capture screenshot: {e}")
+
+        trace_path = artifacts_dir / f"trace_{test_name}.zip"
+        try:
+            context.tracing.stop(path=str(trace_path))
+            print(f"Captured failure trace to {trace_path}")
+        except Exception as e:
+            print(f"Failed to save trace: {e}")
+            
+        logs_dir = Path("logs")
+        for log_name in ["backend_server.log", "frontend_server.log"]:
+            log_src = logs_dir / log_name
+            if log_src.exists():
+                try:
+                    shutil.copy(log_src, artifacts_dir / log_name)
+                    print(f"Copied log {log_name} to artifacts/")
+                except Exception as e:
+                    print(f"Failed to copy log {log_name}: {e}")
+    else:
+        try:
+            context.tracing.stop()
+        except Exception:
+            pass
+

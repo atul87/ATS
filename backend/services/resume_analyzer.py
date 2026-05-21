@@ -18,9 +18,16 @@ def analyze_full_resume(
     job_description: Optional[str] = None,
 ) -> Dict:
     import logging
+    import time
 
+    total_start = time.time()
     logger = logging.getLogger("ats_resume_scorer")
+
+    # Phase 1: Parse resume content
+    parse_start = time.time()
     parsed_resume = parse_resume(resume_text)
+    parse_time = time.time() - parse_start
+
     logger.info(f"Groq parsed summary: {parsed_resume.get('professional_summary', '')[:100]!r}")
     logger.info(f"Groq parsed skills count: {len(parsed_resume.get('skills', []))}")
     logger.info(f"Groq parsed experience count: {len(parsed_resume.get('experience', []))}")
@@ -43,13 +50,9 @@ def analyze_full_resume(
         "github": parsed_resume.get("github"),
         "portfolio": None,
     }
-    skill_validation = validate_skills_with_projects(
-        skills=skills,
-        projects=projects,
-        experience_entries=parsed_resume.get("experience", []),
-        embedder=embedder,
-    )
 
+    # Phase 2: Match with Job Description (if provided)
+    jd_match_start = time.time()
     jd_comparison_result = None
     jd_keywords = None
     if job_description and job_description.strip():
@@ -70,6 +73,16 @@ def analyze_full_resume(
             embedder=embedder,
             nlp=nlp,
         )
+    jd_match_time = time.time() - jd_match_start if (job_description and job_description.strip()) else 0.0
+
+    # Phase 3: Validate skills and calculate scores
+    score_start = time.time()
+    skill_validation = validate_skills_with_projects(
+        skills=skills,
+        projects=projects,
+        experience_entries=parsed_resume.get("experience", []),
+        embedder=embedder,
+    )
 
     from backend.utils.file_utils import (
         get_default_grammar_results,
@@ -91,6 +104,10 @@ def analyze_full_resume(
         jd_keywords=jd_keywords,
         experience_months=experience_months,
     )
+    score_time = time.time() - score_start
+
+    # Phase 4: Analyze issues and generate feedback
+    feedback_start = time.time()
     detailed_feedback = analyze_issues(
         resume_text=resume_text,
         parsed_resume=parsed_resume,
@@ -103,6 +120,22 @@ def analyze_full_resume(
     )
 
     issues_summary = generate_issues_summary(detailed_feedback)
+    feedback_time = time.time() - feedback_start
+
+    total_time = time.time() - total_start
+
+    logger.info(
+        f"analysis_complete - total_time={total_time:.2f}s (parse={parse_time:.2f}s, jd_match={jd_match_time:.2f}s, score={score_time:.2f}s, feedback={feedback_time:.2f}s)",
+        extra={
+            "parse_time": parse_time,
+            "jd_match_time": jd_match_time,
+            "score_time": score_time,
+            "feedback_time": feedback_time,
+            "total_time": total_time,
+            "parser": "groq",
+        },
+    )
+
 
     validated_raw = skill_validation.get("validated_skills", [])
     unvalidated_raw = skill_validation.get("unvalidated_skills", [])

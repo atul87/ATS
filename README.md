@@ -1,129 +1,134 @@
-# ATS Resume Scorer
+# ATS Resume Analyzer
 
-A web app that scores how well a resume matches a job description and returns actionable feedback. Built with FastAPI + Streamlit, using spaCy and Sentence Transformers for NLP and the Groq API for LLM-generated suggestions.
+A production-ready resume analysis application that scores resumes against job descriptions and returns actionable feedback. The project combines a FastAPI backend (NLP + scoring) with a Streamlit frontend (user UI). It uses spaCy and Sentence Transformers for parsing and semantic matching, and optionally leverages the Groq LLM API for richer feedback.
 
-## What it does
+This README covers quickstart, development, containerized runs, testing, and deployment notes.
 
-1. Upload a resume (PDF / DOC / DOCX) and paste a job description.
-2. The backend parses the resume, extracts skills and experience, and compares them to the JD using semantic similarity.
-3. You get an ATS score, a breakdown by category (formatting, keywords, content, skill validation, ATS compatibility), and LLM-written suggestions for what to improve.
-4. Past analyses are saved to your account so you can revisit them.
+## Highlights
 
-## Tech stack
+- FastAPI backend with model-loading and health checks
+- Streamlit frontend with components and reusable UI
+- Resume parsing (PDF/DOC/DOCX), skill extraction, semantic JD matching
+- Upload protections (MIME + extension checks, max size)
+- Docker-friendly with `docker-compose.yml` for local integration
+- Deployment guide in `DEPLOYMENT.md`
 
-- **Frontend:** Streamlit
-- **Backend:** FastAPI (Python)
-- **NLP:** spaCy (`en_core_web_md`), Sentence Transformers (`all-MiniLM-L6-v2`)
-- **LLM:** Groq API (Llama 3)
-- **Auth + Database:** Supabase (email/password and Google OAuth)
-- **PDF report export:** WeasyPrint + Jinja2
+## Repository layout
 
-## Project structure
+Top-level layout (important directories):
 
 ```
-ATS_SCORER/
-├── backend/              FastAPI app, NLP services, API routes
-├── frontend/             Streamlit app, views, components
-├── jupyter notebooks/    Research and dataset prep (not used at runtime)
-├── ml model/             Exported ML artifacts
-├── requirements.txt      Combined backend + frontend dependencies
-└── .env.example          Template for environment variables
+.
+├── backend/                # FastAPI app, services, models
+├── frontend/               # Streamlit UI and components
+├── tests/                  # Unit, integration and e2e tests
+├── jupyter notebooks/      # Research and experiments (not required at runtime)
+├── docker-compose.yml
+├── .env.example
+└── DEPLOYMENT.md           # Deployment & verification guide
 ```
 
-## Setup
+## Quickstart
 
-### 1. Clone and create a virtual environment
+There are two primary ways to run the project locally: (A) with Docker Compose (recommended for parity with deployment) or (B) in a Python virtualenv.
+
+### A. Docker Compose (recommended)
+
+1. Copy `.env.example` to `.env` and fill in development keys as needed.
+2. Build and run:
 
 ```bash
-git clone <repo-url>
-cd ATS_SCORER
-python -m venv venv
-source venv/bin/activate         # Windows: venv\Scripts\activate
+docker compose up --build
 ```
 
-### 2. Install dependencies
+This starts:
+
+- Backend: `http://localhost:8000` (health: `/api/v1/health`)
+- Frontend: `http://localhost:8501`
+
+Open the Streamlit UI and exercise the upload + analysis flow.
+
+### B. Local Python (dev)
+
+1. Create and activate a virtual environment:
+
+```bash
+python -m venv .venv
+# Windows
+.\.venv\Scripts\activate
+# macOS / Linux
+source .venv/bin/activate
+```
+
+1. Install dependencies and download spaCy model:
 
 ```bash
 pip install -r requirements.txt
 python -m spacy download en_core_web_md
 ```
 
-WeasyPrint needs system libraries on Linux:
-
-```bash
-# Fedora
-sudo dnf install -y cairo pango gdk-pixbuf2 libffi
-
-# Debian / Ubuntu
-sudo apt install -y libcairo2 libpango-1.0-0 libpangoft2-1.0-0 libffi-dev
-```
-
-### 3. Configure environment variables
-
-Copy the template and fill in your keys:
+1. Copy environment template and run services:
 
 ```bash
 cp .env.example .env
-```
-
-You need:
-
-- A **Supabase** project — grab `SUPABASE_URL`, `SUPABASE_KEY` (service role), and `SUPABASE_ANON_KEY` from Project Settings → API.
-- A **Groq** API key from [console.groq.com](https://console.groq.com).
-- (Optional) Google OAuth set up in the Supabase dashboard if you want Google sign-in.
-
-The Streamlit frontend also reads Supabase config from `frontend/.streamlit/secrets.toml`. Copy `secrets.toml.example` to `secrets.toml` and fill it in.
-
-### 4. Run the backend
-
-From the project root:
-
-```bash
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-The API is now at `http://localhost:8000`.
-
-### 5. Run the frontend
-
-In a new terminal (with the venv activated):
-
-```bash
 streamlit run frontend/streamlit_app.py
 ```
 
-The app opens at `http://localhost:8501`.
+## Environment variables
 
-## Running Tests
+Use `.env.example` as the source of truth. Key variables include:
 
-The project includes an integration and unit test suite powered by `pytest`. The suite runs entirely locally (mocking external dependencies like Supabase databases).
+- `ENVIRONMENT` — `development` or `production` (production enables fail-fast env validation)
+- `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`
+- `GROQ_API_KEY` — optional but recommended for LLM suggestions
+- `MOCK_AUTH` — set `true` for local testing without real auth providers
 
-To run all tests:
+See `DEPLOYMENT.md` for example dev/prod envs and recommended values.
+
+## Testing
+
+Run unit/integration/e2e tests with `pytest`:
 
 ```bash
 pytest tests/ -v
 ```
 
-## Quality Checks
-
-Run the same checks used by CI before pushing:
+CI is configured to run linting and tests; run the same checks locally before pushing:
 
 ```bash
-python -m compileall backend frontend tests -q
 ruff check .
 black --check .
 pytest tests/ -v
 ```
 
-To format code locally:
+## Deployment
 
-```bash
-black .
-```
+Recommended flow:
 
-## Notes for students
+- Backend: Railway (supports Docker and long-running ML workloads)
+- Frontend: Streamlit Community Cloud, or deploy the Streamlit container on Railway
 
-- **Never commit `.env` or `secrets.toml`** — they hold API keys. Both are in `.gitignore`; check before you push.
-- The first run downloads the Sentence Transformer model (~80 MB). It's cached afterwards.
-- **Local Fallback Mode**: If you don't have a Groq key configured (`GROQ_API_KEY` is empty), the backend automatically falls back to a local regex/keyword-based parser. Scoring, feedback, and PDF exports still function, although parsing accuracy is reduced.
-- `jupyter notebooks/` and `ml model/` are for experimentation and aren't required to run the app.
+See `DEPLOYMENT.md` for step-by-step instructions, smoke tests, and troubleshooting guidance.
+
+## Troubleshooting & Tips
+
+- If startup fails complaining about missing env vars in production, ensure `ENVIRONMENT=production` and required keys are present; the service is intentionally fail-fast in production.
+- If spaCy model fallback occurs, confirm `en_core_web_md` is installed or increase container memory / pre-pull models during image build.
+- For parsing errors with malformed PDFs, check backend logs (`docker compose logs backend --follow`) — the parser returns a 422 on parse failures.
+
+## Contributing
+
+Please follow the repo's linting rules and tests. Opening PRs that include small, focused changes and tests is appreciated.
+
+1. Fork and branch from `main`.
+2. Run tests locally.
+3. Open a pull request with a clear description and test coverage for non-trivial changes.
+
+## License
+
+This project is provided under the MIT license (see `LICENSE` if present).
+
+---
+
+If you'd like, I can also add a short `RAILWAY.md` with exact build/env settings for a Railway deployment, or create the `tests/fixtures/` directory with example weird resumes next.

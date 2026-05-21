@@ -3,6 +3,10 @@ import logging
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from backend.api.auth import get_current_user
+from pathlib import Path
+import backend.core.config as cfg
+from backend.database.base import DocumentStore
+from backend.database.store import get_db
 from backend.models.schemas import (
     AnalysisResponse,
     ComponentScores,
@@ -27,13 +31,32 @@ async def analyze_resume(
     resume: UploadFile = File(..., description="Resume file — PDF or DOCX, max 5 MB"),
     job_description: str = Form("", description="Job description text (optional)"),
     user_id: str = Depends(get_current_user),
+    db: DocumentStore = Depends(get_db),
 ):
     nlp = request.app.state.nlp
     embedder = request.app.state.embedder
 
+    # Basic upload protections: MIME / extension check and max size
+    filename = resume.filename or "resume"
+    content_type = (resume.content_type or "").lower()
+    ext = Path(filename).suffix.lower()
+
+    # Validate content type and extension
+    if content_type and content_type not in cfg.SUPPORTED_MIME_TYPES:
+        if ext not in cfg.SUPPORTED_EXTENSIONS:
+            raise HTTPException(
+                status_code=415,
+                detail=f"Unsupported file type: {content_type} / {ext}. Allowed: {list(cfg.SUPPORTED_MIME_TYPES.keys())}",
+            )
+
     try:
         file_bytes = await resume.read()
-        filename = resume.filename or "resume"
+        # Validate size
+        if len(file_bytes) > cfg.MAX_FILE_SIZE_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large. Max size is {cfg.MAX_FILE_SIZE_MB} MB",
+            )
 
         from backend.services.resume_parser import (
             parse_resume_file,
@@ -103,9 +126,7 @@ async def analyze_resume(
     )
 
     try:
-        from backend.database.supabase_db import save_analysis
-
-        await save_analysis(user_id, filename, result)
+        await db.save_analysis(user_id, filename, result)
     except Exception as exc:
         logger.warning(f"History save failed (non-blocking): {exc}")
 
@@ -123,12 +144,13 @@ async def health_check(request: Request):
 
 
 @router.get("/history")
-async def get_history(user_id: str = Depends(get_current_user)):
+async def get_history(
+    user_id: str = Depends(get_current_user),
+    db: DocumentStore = Depends(get_db),
+):
     """Return the signed-in user's past analyses (identity comes from the JWT)."""
-    from backend.database.supabase_db import get_user_history
-
     try:
-        return await get_user_history(user_id)
+        return await db.get_user_history(user_id)
     except Exception as exc:
         logger.error(f"History fetch failed: {exc}")
         raise HTTPException(status_code=500, detail=f"Could not load history: {exc}")
@@ -138,12 +160,11 @@ async def get_history(user_id: str = Depends(get_current_user)):
 async def delete_history_entry(
     analysis_id: str,
     user_id: str = Depends(get_current_user),
+    db: DocumentStore = Depends(get_db),
 ):
     """Delete one analysis from the signed-in user's history."""
-    from backend.database.supabase_db import delete_analysis
-
     try:
-        success = await delete_analysis(analysis_id, user_id)
+        success = await db.delete_analysis(analysis_id, user_id)
         if not success:
             raise HTTPException(
                 status_code=404, detail="Analysis not found or not owned by this user."
@@ -164,10 +185,17 @@ async def generate_pdf(
     from backend.services.report_generator import generate_html_reports
     from backend.services.pdf_export import generate_combined_pdf
     from fastapi.responses import Response
+    import time
 
+    pdf_start = time.time()
     try:
         html_docs = generate_html_reports(data.model_dump())
         pdf_bytes = generate_combined_pdf(html_docs)
+        pdf_time = time.time() - pdf_start
+        logger.info(
+            f"PDF generated in {pdf_time:.2f}s",
+            extra={"pdf_time": pdf_time, "action": "generate_pdf"},
+        )
 
         return Response(
             content=pdf_bytes,
@@ -183,13 +211,14 @@ async def generate_pdf(
 async def generate_history_pdf(
     analysis_id: str,
     user_id: str = Depends(get_current_user),
+    db: DocumentStore = Depends(get_db),
 ):
-    from backend.database.supabase_db import get_user_history
     from backend.services.report_generator import generate_html_reports
     from backend.services.pdf_export import generate_combined_pdf
     from fastapi.responses import Response
+    import time
 
-    history = await get_user_history(user_id)
+    history = await db.get_user_history(user_id)
     analysis_data = next(
         (item["analysis_result"] for item in history if item["id"] == analysis_id), None
     )
@@ -197,9 +226,19 @@ async def generate_history_pdf(
     if not analysis_data:
         raise HTTPException(status_code=404, detail="Analysis not found")
 
+    pdf_start = time.time()
     try:
         html_docs = generate_html_reports(analysis_data)
         pdf_bytes = generate_combined_pdf(html_docs)
+        pdf_time = time.time() - pdf_start
+        logger.info(
+            f"PDF generated for history entry {analysis_id} in {pdf_time:.2f}s",
+            extra={
+                "pdf_time": pdf_time,
+                "action": "generate_history_pdf",
+                "analysis_id": analysis_id,
+            },
+        )
 
         return Response(
             content=pdf_bytes,

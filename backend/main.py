@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,32 +14,64 @@ from backend.core.config import (
     SENTENCE_TRANSFORMER_MODEL,
 )
 from backend.api.routes import router
+import backend.core.config as core_config
 
 logger = logging.getLogger("ats_resume_scorer")
+
+# Log startup environment validation. In production, fail fast on missing vars.
+missing_env = core_config.check_required_env_vars()
+ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
+if missing_env:
+    if ENVIRONMENT == "production":
+        logger.error(f"Startup missing environment variables (production): {missing_env}")
+        raise RuntimeError(f"Missing required environment variables: {missing_env}")
+    else:
+        logger.warning(f"Startup missing environment variables: {missing_env}")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import time
+
+    start_time = time.time()
     logger.info("Starting ATS Resume Analyzer API...")
 
     logger.info(f"Loading spaCy NLP model: {SPACY_MODEL_PRIMARY}")
     import spacy
 
+    spacy_start = time.time()
     try:
         app.state.nlp = spacy.load(SPACY_MODEL_PRIMARY)
-        logger.info(f"Loaded {SPACY_MODEL_PRIMARY}")
+        spacy_time = time.time() - spacy_start
+        logger.info(
+            f"Loaded {SPACY_MODEL_PRIMARY} in {spacy_time:.2f}s",
+            extra={"model_load": spacy_time, "model_name": SPACY_MODEL_PRIMARY},
+        )
     except OSError:
         logger.warning(f"{SPACY_MODEL_PRIMARY} not found — falling back to {SPACY_MODEL_SECONDARY}")
         app.state.nlp = spacy.load(SPACY_MODEL_SECONDARY)
-        logger.info(f"Loaded {SPACY_MODEL_SECONDARY} (fallback)")
+        spacy_time = time.time() - spacy_start
+        logger.info(
+            f"Loaded {SPACY_MODEL_SECONDARY} (fallback) in {spacy_time:.2f}s",
+            extra={"model_load": spacy_time, "model_name": SPACY_MODEL_SECONDARY},
+        )
 
+    st_start = time.time()
     logger.info(f"Loading SentenceTransformer: {SENTENCE_TRANSFORMER_MODEL}")
     from sentence_transformers import SentenceTransformer
 
     app.state.embedder = SentenceTransformer(SENTENCE_TRANSFORMER_MODEL)
-    logger.info(f"Loaded {SENTENCE_TRANSFORMER_MODEL}")
+    st_time = time.time() - st_start
+    logger.info(
+        f"Loaded {SENTENCE_TRANSFORMER_MODEL} in {st_time:.2f}s",
+        extra={"model_load": st_time, "model_name": SENTENCE_TRANSFORMER_MODEL},
+    )
 
-    logger.info("All models loaded. API is ready to serve requests.")
+    total_time = time.time() - start_time
+    logger.info(
+        f"All models loaded. API is ready to serve requests in {total_time:.2f}s.",
+        extra={"total_load_time": total_time},
+    )
 
     yield
 

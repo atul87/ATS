@@ -1,4 +1,5 @@
 import os
+import logging
 from pathlib import Path
 
 # Load .env from the project root (two levels up from this file) explicitly —
@@ -55,3 +56,19 @@ SUPABASE_JWT_SECRET = os.getenv(
     "SUPABASE_JWT_SECRET", ""
 )  # used by backend to verify access tokens
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
+
+
+def check_required_env_vars(required=None):
+    """Check for required environment variables and return a list of missing ones.
+
+    This function logs a warning when variables are missing but does not raise.
+    Raising can be enabled by callers if they want strict startup failure.
+    """
+    if required is None:
+        required = ["SUPABASE_URL", "SUPABASE_KEY", "GROQ_API_KEY"]
+
+    missing = [name for name in required if not os.getenv(name)]
+    if missing:
+        logging.getLogger("ats_resume_scorer").warning("Missing env vars: %s", missing)
+
+    return missing

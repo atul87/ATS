@@ -11,3 +11,6 @@ ENV/
 .pytest_cache/
 backend/logs/
 *.log
+artifacts/
+logs/
+playwright-report/

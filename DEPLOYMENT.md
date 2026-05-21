@@ -1,0 +1,86 @@
+# Deployment guide
+
+This document describes quick deployment and verification steps for the ATS project.
+
+## Local (developer smoke test)
+
+Build and run both services locally with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Open these endpoints to verify services are running:
+
+- Backend health: <http://localhost:8000/api/v1/health>
+- Frontend (Streamlit): <http://localhost:8501>
+
+## Development environment (recommended env)
+
+Use a development `.env` with these values (example):
+
+```env
+ENVIRONMENT=development
+MOCK_AUTH=true
+```
+
+Set any other test keys from `.env.example` as needed.
+
+## Production environment (required keys)
+
+In production you must set these environment variables (example):
+
+```env
+ENVIRONMENT=production
+SUPABASE_URL=https://your-supabase-url
+SUPABASE_KEY=service_role_key_here
+GROQ_API_KEY=your_groq_api_key
+MOCK_AUTH=false
+```
+
+Notes:
+
+- When `ENVIRONMENT=production` the backend will fail-fast if required env vars are missing.
+- Use the values from `.env.example` as a guide.
+
+## Smoke test checklist
+
+- [ ] ✓ health endpoint responds and models loaded
+- [ ] ✓ upload a normal resume and receive analysis
+- [ ] ✓ upload a malformed/edge-case PDF and observe handled error
+- [ ] ✓ generate PDF report via `/api/v1/generate-pdf`
+- [ ] ✓ fetch history via `/api/v1/history`
+- [ ] ✓ inspect startup logs for model load times and env validation
+
+## Deploying backend (Railway recommended)
+
+1. Sign in to Railway with GitHub and create a new project.
+2. Choose "Deploy from GitHub" and select this repository (`atul87/ATS`).
+3. Add environment variables from the **Production environment** section.
+4. Configure build command (optional): `docker build -t ats_backend backend/` or allow Railway to use the `Dockerfile` at `backend/Dockerfile`.
+5. Railway will build and deploy on push. Monitor logs for startup and model-loading messages.
+
+## Deploying frontend
+
+Option A — Streamlit Community Cloud:
+
+1. Sign in with GitHub and create a new app from this repo.
+2. Set the entrypoint to `frontend/streamlit_app.py` and provide any secrets (Supabase anon key if used client-side).
+
+Option B — Deploy the Streamlit container on Railway (use `frontend/Dockerfile`).
+
+## Post-deploy verification
+
+- Confirm backend `/api/v1/health` shows `nlp_loaded: true` and `embedder_loaded: true`.
+- Run a few sample uploads to ensure parsing and scoring behave as expected.
+- Verify logs for any warnings about missing env vars or model load fallbacks.
+
+## Troubleshooting
+
+- If startup fails with missing env vars: ensure `ENVIRONMENT` and required keys are present.
+- If model load falls back to a smaller spaCy model, consider provisioning more memory or pre-pulling models in your container build step.
+
+## Additions
+
+- Keep `.env.example` updated with any new secrets.
+- Ensure `artifacts/`, `logs/`, `.pytest_cache/`, and `playwright-report/` are in `.gitignore` (already included).
