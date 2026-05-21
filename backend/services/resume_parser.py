@@ -1,6 +1,16 @@
 import io
-import magic
+from pathlib import Path
 from typing import Tuple, Optional, Tuple
+
+try:
+    import magic
+except ImportError:
+    class _MissingMagic:
+        @staticmethod
+        def from_buffer(*_args, **_kwargs):
+            raise ImportError("python-magic/libmagic is unavailable")
+
+    magic = _MissingMagic()
 
 import pdfplumber
 from docx import Document
@@ -28,6 +38,20 @@ class FileParsingError(Exception):
 class FileValidationError(Exception):
     pass
 
+
+def _detect_mime_type(file_data: bytes, filename: str) -> str:
+    try:
+        return magic.from_buffer(file_data, mime=True)
+    except Exception:
+        suffix = Path(filename or "").suffix.lower()
+        if file_data.startswith(b"%PDF"):
+            return "application/pdf"
+        if suffix == ".docx" and file_data.startswith(b"PK"):
+            return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        if suffix == ".doc":
+            return "application/msword"
+        raise
+
 def validate_file(file_data:bytes, filename:str)->Tuple[bool, str, Optional[str]]:
     file_size_bytes = len(file_data)
     if file_size_bytes > MAX_FILE_SIZE_BYTES:
@@ -41,7 +65,7 @@ def validate_file(file_data:bytes, filename:str)->Tuple[bool, str, Optional[str]
         return False, 'uploade file is empty...please check the file you have uploaded and try again'
     
     try:
-        mime_type=magic.from_buffer(file_data, mime=True)
+        mime_type = _detect_mime_type(file_data, filename)
     except Exception as e:
         return False, f"error deteminin the file type : {e}", None
     

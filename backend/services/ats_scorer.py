@@ -1,12 +1,15 @@
+from __future__ import annotations
+
 import re
-import spacy
 import numpy as np
-from sentence_transformers import SentenceTransformer
-from typing import Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple
 
 from backend.utils.file_utils import log_warning
-from backend.core.config import SENTENCE_TRANSFORMER_MODEL
 from backend.utils.matching import fuzzy_match_keywords
+
+if TYPE_CHECKING:
+    import spacy
+    from sentence_transformers import SentenceTransformer
 
 ZIP_CODE_PATTERN = r'\b\d{5}(?:-\d{4})?\b'
 

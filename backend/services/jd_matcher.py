@@ -1,15 +1,15 @@
-from typing import List, Dict
-import numpy as np
-import spacy
-from sentence_transformers import SentenceTransformer
+from __future__ import annotations
 
 from typing import List, Dict
 import numpy as np
-import spacy
-from sentence_transformers import SentenceTransformer
+from typing import TYPE_CHECKING
 
 from backend.utils.matching import fuzzy_match_keywords, normalize_skill
 from rapidfuzz import fuzz
+
+if TYPE_CHECKING:
+    import spacy
+    from sentence_transformers import SentenceTransformer
 
 
 def calculate_semantic_similarity(
