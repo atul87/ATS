@@ -14,7 +14,7 @@ except ImportError:
 
 import pdfplumber
 from docx import Document
-import PyPDF2
+from pypdf import PdfReader
 
 from backend.utils.file_utils import(
     FileParsingError, 
@@ -83,7 +83,7 @@ def validate_file(file_data:bytes, filename:str)->Tuple[bool, str, Optional[str]
 def _extract_pdf_hyperlinks(file_data: bytes) -> str:
     urls = []
     try:
-        reader = PyPDF2.PdfReader(io.BytesIO(file_data))
+        reader = PdfReader(io.BytesIO(file_data))
         for page in reader.pages:
             if '/Annots' not in page:
                 continue
@@ -95,7 +95,7 @@ def _extract_pdf_hyperlinks(file_data: bytes) -> str:
                     action = annot.get('/A', {})
                     uri = action.get('/URI', '')
                     if uri and isinstance(uri, (str, bytes)):
-                        # PyPDF2 may return bytes for URI values
+                        # Some PDFs may expose URI values as bytes.
                         if isinstance(uri, bytes):
                             uri = uri.decode('utf-8', errors='ignore')
                         uri = uri.strip()
@@ -129,9 +129,9 @@ def _extract_pdf_with_pdfplumber(file_data: bytes) -> str:
     return text.strip()
 
 
-def _extract_pdf_with_pypdf2(file_data: bytes) -> str:
+def _extract_pdf_with_pypdf(file_data: bytes) -> str:
     text = ''
-    pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_data))
+    pdf_reader = PdfReader(io.BytesIO(file_data))
     for page in pdf_reader.pages:
         page_text = page.extract_text()
         if page_text:
@@ -139,7 +139,7 @@ def _extract_pdf_with_pypdf2(file_data: bytes) -> str:
 
     if not text.strip():
         raise TextExtractionError(
-            'PyPDF2 extracted no text',
+            'pypdf extracted no text',
             user_message='No text could be extracted from the PDF.'
         )
 
@@ -154,19 +154,19 @@ def extract_text_from_pdf(file_data: bytes) -> str:
     try: 
         result, used_fallback=with_fallback(
         _extract_pdf_with_pdfplumber, 
-        _extract_pdf_with_pypdf2, 
+        _extract_pdf_with_pypdf,
         file_data, 
         log_fallback=True
     )
     
         if used_fallback:
-            log_info('PDF EXTRACTION succeded using the PyPDF2 fallback', context='resume_parser')
+            log_info('PDF extraction succeeded using the pypdf fallback', context='resume_parser')
         return result
         
     except Exception as e:
         log_error(e, context='extract_text_from_pdf')
         raise FileParsingError(
-            'Failed to extract text from PDF using both pdfplumber and PyPDF2. '
+            'Failed to extract text from PDF using both pdfplumber and pypdf. '
             'The PDF may be corrupted, password-protected, or contain only scanned images. '
             'Please ensure it contains selectable text.'
         ) from e

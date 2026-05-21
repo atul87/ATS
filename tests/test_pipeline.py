@@ -1,7 +1,8 @@
 import io
+import time
 
 from docx import Document
-from PyPDF2 import PdfWriter
+from pypdf import PdfWriter
 
 from backend.services import resume_parser
 
@@ -131,3 +132,13 @@ def test_analyze_resume_rejects_image_only_pdf(client, monkeypatch):
 
     assert response.status_code == 422
     assert "Could not read or parse the resume" in response.json()["detail"]
+
+
+def test_analyze_resume_performance_smoke(client, monkeypatch):
+    start = time.perf_counter()
+    response = post_docx(client, monkeypatch, STRONG_RESUME)
+    elapsed = time.perf_counter() - start
+
+    assert response.status_code == 200, response.text
+    assert 0 <= response.json()["ATS_score"] <= 100
+    assert elapsed < 10

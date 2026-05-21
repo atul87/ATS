@@ -59,7 +59,10 @@ def test_fallback_parser_handles_malformed_unicode(monkeypatch):
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
     groq_parser._client = None
 
-    result = groq_parser.parse_resume("Jane Doe \ud83d\x00\nSkills: Python, Docker")
+    result = groq_parser.parse_resume(
+        "John Dœ • Pythøn • डेवलपर • 数据科学 \ud83d\x00\n"
+        "Skills: Python, Docker"
+    )
 
     assert result["parser_source"] == "local_regex"
     assert "Python" in result["skills"]
