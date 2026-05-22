@@ -1,5 +1,7 @@
 import logging
 import os
+import hashlib
+import re
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +19,33 @@ from backend.api.routes import router
 import backend.core.config as core_config
 
 logger = logging.getLogger("ats_resume_scorer")
+
+
+def _truthy_env(name: str) -> bool:
+    return os.getenv(name, "").lower() in {"1", "true", "yes", "on"}
+
+
+class _FastDoc:
+    ents = ()
+    noun_chunks = ()
+
+
+class _FastNLP:
+    def __call__(self, text: str):
+        return _FastDoc()
+
+
+class _FastEmbedder:
+    def encode(self, text: str, convert_to_tensor: bool = False):
+        vector = [0.0] * 64
+        for token in re.findall(r"[a-z0-9+#.]+", (text or "").lower()):
+            digest = hashlib.sha256(token.encode("utf-8")).digest()
+            vector[digest[0] % len(vector)] += 1.0
+
+        if not any(vector):
+            vector[0] = 1.0
+        return vector
+
 
 # Log startup environment validation. In production, fail fast on missing vars.
 missing_env = core_config.check_required_env_vars()
@@ -36,36 +65,55 @@ async def lifespan(app: FastAPI):
     start_time = time.time()
     logger.info("Starting ATS Resume Analyzer API...")
 
-    logger.info(f"Loading spaCy NLP model: {SPACY_MODEL_PRIMARY}")
-    import spacy
+    if _truthy_env("ATS_FAST_MODEL_MODE"):
+        app.state.nlp = _FastNLP()
+        app.state.embedder = _FastEmbedder()
+        logger.info("ATS_FAST_MODEL_MODE enabled; using deterministic lightweight models.")
+    else:
+        logger.info(f"Loading spaCy NLP model: {SPACY_MODEL_PRIMARY}")
+        import spacy
 
-    spacy_start = time.time()
-    try:
-        app.state.nlp = spacy.load(SPACY_MODEL_PRIMARY)
-        spacy_time = time.time() - spacy_start
+        spacy_start = time.time()
+        try:
+            app.state.nlp = spacy.load(SPACY_MODEL_PRIMARY)
+            spacy_time = time.time() - spacy_start
+            logger.info(
+                f"Loaded {SPACY_MODEL_PRIMARY} in {spacy_time:.2f}s",
+                extra={
+                    "model_load": spacy_time,
+                    "model_load_time": spacy_time,
+                    "model_name": SPACY_MODEL_PRIMARY,
+                },
+            )
+        except OSError:
+            logger.warning(
+                f"{SPACY_MODEL_PRIMARY} not found — falling back to {SPACY_MODEL_SECONDARY}"
+            )
+            app.state.nlp = spacy.load(SPACY_MODEL_SECONDARY)
+            spacy_time = time.time() - spacy_start
+            logger.info(
+                f"Loaded {SPACY_MODEL_SECONDARY} (fallback) in {spacy_time:.2f}s",
+                extra={
+                    "model_load": spacy_time,
+                    "model_load_time": spacy_time,
+                    "model_name": SPACY_MODEL_SECONDARY,
+                },
+            )
+
+        st_start = time.time()
+        logger.info(f"Loading SentenceTransformer: {SENTENCE_TRANSFORMER_MODEL}")
+        from sentence_transformers import SentenceTransformer
+
+        app.state.embedder = SentenceTransformer(SENTENCE_TRANSFORMER_MODEL)
+        st_time = time.time() - st_start
         logger.info(
-            f"Loaded {SPACY_MODEL_PRIMARY} in {spacy_time:.2f}s",
-            extra={"model_load": spacy_time, "model_name": SPACY_MODEL_PRIMARY},
+            f"Loaded {SENTENCE_TRANSFORMER_MODEL} in {st_time:.2f}s",
+            extra={
+                "model_load": st_time,
+                "model_load_time": st_time,
+                "model_name": SENTENCE_TRANSFORMER_MODEL,
+            },
         )
-    except OSError:
-        logger.warning(f"{SPACY_MODEL_PRIMARY} not found — falling back to {SPACY_MODEL_SECONDARY}")
-        app.state.nlp = spacy.load(SPACY_MODEL_SECONDARY)
-        spacy_time = time.time() - spacy_start
-        logger.info(
-            f"Loaded {SPACY_MODEL_SECONDARY} (fallback) in {spacy_time:.2f}s",
-            extra={"model_load": spacy_time, "model_name": SPACY_MODEL_SECONDARY},
-        )
-
-    st_start = time.time()
-    logger.info(f"Loading SentenceTransformer: {SENTENCE_TRANSFORMER_MODEL}")
-    from sentence_transformers import SentenceTransformer
-
-    app.state.embedder = SentenceTransformer(SENTENCE_TRANSFORMER_MODEL)
-    st_time = time.time() - st_start
-    logger.info(
-        f"Loaded {SENTENCE_TRANSFORMER_MODEL} in {st_time:.2f}s",
-        extra={"model_load": st_time, "model_name": SENTENCE_TRANSFORMER_MODEL},
-    )
 
     total_time = time.time() - start_time
     logger.info(
@@ -73,9 +121,10 @@ async def lifespan(app: FastAPI):
         extra={"total_load_time": total_time},
     )
 
-    yield
-
-    logger.info("shutting down the api!!")
+    try:
+        yield
+    finally:
+        logger.info("shutting down the api!!")
 
 
 app = FastAPI(

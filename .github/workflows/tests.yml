@@ -58,6 +58,9 @@ jobs:
         run: |
           python -m playwright install --with-deps chromium
 
+      - name: Generate E2E fixtures
+        run: python tests/generate_fixtures.py
+
       - name: Run E2E tests
         run: python -m pytest tests/test_e2e.py -v
 
@@ -81,6 +84,7 @@ jobs:
         run: |
           cp .env.example .env
           sed -i 's/MOCK_AUTH=false/MOCK_AUTH=true/g' .env
+          echo "ATS_FAST_MODEL_MODE=true" >> .env
 
       - name: Build Docker images
         run: docker compose build

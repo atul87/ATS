@@ -83,15 +83,35 @@ Use `.env.example` as the source of truth. Key variables include:
 - `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`
 - `GROQ_API_KEY` — optional but recommended for LLM suggestions
 - `MOCK_AUTH` — set `true` for local testing without real auth providers
+- `ATS_FAST_MODEL_MODE` — test-only switch used by CI to avoid downloading NLP models
 
 See `DEPLOYMENT.md` for example dev/prod envs and recommended values.
 
 ## Testing
 
-Run unit/integration/e2e tests with `pytest`:
+The automated suite runs in deterministic CI mode:
+
+- `MOCK_AUTH=true`
+- in-memory history store
+- local Groq parser fallback
+- lightweight deterministic model stubs for browser E2E startup
+
+Generate ignored resume/JD fixtures when you want to inspect or reuse them locally:
 
 ```bash
-pytest tests/ -v
+python tests/generate_fixtures.py
+```
+
+Run unit/integration tests:
+
+```bash
+pytest tests/ -v -k "not test_e2e"
+```
+
+Run browser E2E:
+
+```bash
+pytest tests/test_e2e.py -v
 ```
 
 CI is configured to run linting and tests; run the same checks locally before pushing:
@@ -101,6 +121,8 @@ ruff check .
 black --check .
 pytest tests/ -v
 ```
+
+For real pre-production validation, start the stack with real Supabase/Groq values and `MOCK_AUTH=false`; do not use this mode for CI. The E2E harness can be forced into that mode with `PRE_PROD=true`.
 
 To catch formatting issues before they reach CI, install and enable pre-commit hooks once:
 
@@ -130,7 +152,7 @@ Run it with mock auth enabled for local or container benchmarking:
 MOCK_AUTH=true locust -f load/locustfile.py --host=http://localhost:8000
 ```
 
-Use Locust's UI or CLI flags to test at 10 or 50 concurrent users and inspect average latency, p95, and error rates.
+Use Locust's UI or CLI flags to test 10, 25, 50, and 100 concurrent users. The script fails the run when p95 latency exceeds `LOCUST_P95_THRESHOLD_MS` (default `2000`) or failure rate exceeds `LOCUST_FAILURE_RATE_THRESHOLD` (default `0.01`).
 
 ## Troubleshooting & Tips
 
@@ -152,5 +174,3 @@ Please follow the repo's linting rules and tests. Opening PRs that include small
 This project is provided under the MIT license (see `LICENSE` if present).
 
 ---
-
-If you'd like, I can also add a short `RAILWAY.md` with exact build/env settings for a Railway deployment, or create the `tests/fixtures/` directory with example weird resumes next.

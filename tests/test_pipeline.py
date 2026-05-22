@@ -115,6 +115,23 @@ def test_analyze_resume_accepts_empty_job_description(client, monkeypatch):
     assert body["keyword_match"] == 0.0
 
 
+def test_analyze_resume_rejects_large_file(client):
+    response = client.post(
+        "/api/v1/analyze-resume",
+        data={"job_description": ""},
+        files={
+            "resume": (
+                "huge_resume.pdf",
+                b"%PDF-1.4\n" + b"0" * (6 * 1024 * 1024),
+                "application/pdf",
+            )
+        },
+    )
+
+    assert response.status_code == 413
+    assert "File too large" in response.json()["detail"]
+
+
 def test_analyze_resume_rejects_image_only_pdf(client, monkeypatch):
     monkeypatch.setattr(
         resume_parser.magic, "from_buffer", lambda *_args, **_kwargs: "application/pdf"

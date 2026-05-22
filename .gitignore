@@ -16,6 +16,7 @@ logs/
 playwright-report/
 tests/generated/
 .env
+.env.*
 tests/fixtures/generated/
 tests/jd/
 load-report-*.html

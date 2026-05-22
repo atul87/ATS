@@ -65,6 +65,8 @@ async def analyze_resume(
         resume_text, _metadata = parse_resume_file(file_bytes, filename)
         logger.info(f"Parsed '{filename}': {len(resume_text)} chars extracted")
 
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.error(f"File parsing failed: {exc}")
         raise HTTPException(

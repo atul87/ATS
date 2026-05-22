@@ -7,6 +7,59 @@ import requests
 import docx
 from pathlib import Path
 
+# Test credentials from environment for real-environment runs
+TEST_EMAIL = os.getenv("TEST_EMAIL", "test@example.com")
+TEST_PASSWORD = os.getenv("TEST_PASSWORD", "password123")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures" / "generated"
+JD_DIR = REPO_ROOT / "tests" / "jd"
+BACKEND_PORT = int(os.getenv("E2E_BACKEND_PORT", "8000"))
+FRONTEND_PORT = int(os.getenv("E2E_FRONTEND_PORT", "8501"))
+BACKEND_URL = f"http://127.0.0.1:{BACKEND_PORT}"
+FRONTEND_URL = f"http://127.0.0.1:{FRONTEND_PORT}"
+
+
+def _ensure_generated_assets():
+    required = [
+        FIXTURES_DIR / "good_resume.docx",
+        FIXTURES_DIR / "good_resume.pdf",
+        FIXTURES_DIR / "bad_resume.pdf",
+        FIXTURES_DIR / "resume_two_columns.pdf",
+        FIXTURES_DIR / "resume_very_long_10_pages.pdf",
+        JD_DIR / "small_jd.txt",
+        JD_DIR / "large_jd.txt",
+        JD_DIR / "unicode_jd.txt",
+        JD_DIR / "ml_engineer_jd.txt",
+        JD_DIR / "intern_jd.txt",
+    ]
+    if all(path.exists() for path in required):
+        return
+
+    from tests.generate_fixtures import main as generate_fixtures
+
+    generate_fixtures()
+
+
+def _login(page, email: str = TEST_EMAIL, password: str = TEST_PASSWORD):
+    if page.locator("text=Signed in as").is_visible():
+        return
+
+    page.wait_for_selector("text=Sign in", timeout=15000)
+    page.locator("input[aria-label='Email']:visible").first.fill(email)
+    page.locator("input[aria-label='Password']:visible").first.fill(password)
+    page.locator("[data-testid='stFormSubmitButton'] button:visible").first.click()
+    page.wait_for_selector(f"text=Signed in as {email}", timeout=15000)
+
+
+def _logout(page):
+    if page.locator("button:has-text('Sign out')").is_visible():
+        page.locator("button:has-text('Sign out')").click()
+        page.wait_for_selector("text=Sign in", timeout=15000)
+
+
+def _fixture_path(filename: str) -> str:
+    return str((FIXTURES_DIR / filename).resolve())
+
 
 class AppServerController(str):
     def __new__(cls, url, backend_proc, frontend_proc, env, backend_log, frontend_log):
@@ -27,23 +80,36 @@ class AppServerController(str):
             except Exception:
                 self.backend_proc.kill()
             self.backend_proc = None
+            try:
+                self.backend_log.close()
+            except Exception:
+                pass
             time.sleep(2)  # Allow port release
 
     def start_backend(self):
         if not self.backend_proc:
             # Re-open or append to backend log
-            log_f = open(Path("logs/backend_server.log"), "a", encoding="utf-8")
+            log_f = open(REPO_ROOT / "logs" / "backend_server.log", "a", encoding="utf-8")
             self.backend_proc = subprocess.Popen(
-                [sys.executable, "-m", "uvicorn", "backend.main:app", "--port", "8000"],
+                [
+                    sys.executable,
+                    "-m",
+                    "uvicorn",
+                    "backend.main:app",
+                    "--port",
+                    str(BACKEND_PORT),
+                ],
+                cwd=REPO_ROOT,
                 env=self.env,
                 stdout=log_f,
                 stderr=log_f,
             )
+            self.backend_log = log_f
             # Wait/Poll backend health endpoint
             start_time = time.time()
             while time.time() - start_time < 30:
                 try:
-                    r = requests.get("http://127.0.0.1:8000/api/v1/health", timeout=1)
+                    r = requests.get(f"{BACKEND_URL}/api/v1/health", timeout=1)
                     if r.status_code == 200:
                         break
                 except Exception:
@@ -53,8 +119,10 @@ class AppServerController(str):
 
 @pytest.fixture(scope="module")
 def app_servers():
+    _ensure_generated_assets()
+
     # Setup paths
-    logs_dir = Path("logs")
+    logs_dir = REPO_ROOT / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
 
     backend_log_path = logs_dir / "backend_server.log"
@@ -68,12 +136,19 @@ def app_servers():
     env = os.environ.copy()
     if os.getenv("PRE_PROD", "").lower() == "true":
         env["MOCK_AUTH"] = "false"
+        env.pop("ATS_FAST_MODEL_MODE", None)
     else:
         env["MOCK_AUTH"] = "true"
+        env["ATS_FAST_MODEL_MODE"] = "true"
+        env["GROQ_API_KEY"] = ""
+    env["PYTHONUNBUFFERED"] = "1"
+    env["STREAMLIT_BROWSER_GATHER_USAGE_STATS"] = "false"
+    env["STREAMLIT_SERVER_HEADLESS"] = "true"
 
     # Launch backend (uvicorn)
     backend_proc = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "backend.main:app", "--port", "8000"],
+        [sys.executable, "-m", "uvicorn", "backend.main:app", "--port", str(BACKEND_PORT)],
+        cwd=REPO_ROOT,
         env=env,
         stdout=backend_log,
         stderr=backend_log,
@@ -88,10 +163,11 @@ def app_servers():
             "run",
             "frontend/streamlit_app.py",
             "--server.port",
-            "8501",
+            str(FRONTEND_PORT),
             "--server.address",
             "127.0.0.1",
         ],
+        cwd=REPO_ROOT,
         env=env,
         stdout=frontend_log,
         stderr=frontend_log,
@@ -108,7 +184,7 @@ def app_servers():
         # Check backend
         if not backend_ready:
             try:
-                r = requests.get("http://127.0.0.1:8000/api/v1/health", timeout=1)
+                r = requests.get(f"{BACKEND_URL}/api/v1/health", timeout=1)
                 if r.status_code == 200:
                     backend_ready = True
             except Exception:
@@ -116,7 +192,7 @@ def app_servers():
         # Check frontend
         if not frontend_ready:
             try:
-                r = requests.get("http://127.0.0.1:8501", timeout=1)
+                r = requests.get(FRONTEND_URL, timeout=1)
                 if r.status_code == 200:
                     frontend_ready = True
             except Exception:
@@ -141,7 +217,7 @@ def app_servers():
         )
 
     controller = AppServerController(
-        "http://127.0.0.1:8501", backend_proc, frontend_proc, env, backend_log, frontend_log
+        FRONTEND_URL, backend_proc, frontend_proc, env, backend_log, frontend_log
     )
     yield controller
 
@@ -173,14 +249,14 @@ def test_e2e_happy_path(app_servers, page, tmp_path):
     page.wait_for_selector("text=Sign in", timeout=15000)
 
     # Fill in the sign-in form
-    page.locator("input[aria-label='Email']:visible").first.fill("test@example.com")
-    page.locator("input[aria-label='Password']:visible").first.fill("password123")
+    page.locator("input[aria-label='Email']:visible").first.fill(TEST_EMAIL)
+    page.locator("input[aria-label='Password']:visible").first.fill(TEST_PASSWORD)
 
     # Submit the form
     page.locator("[data-testid='stFormSubmitButton'] button:visible").first.click()
 
-    # 3. Verify sidebar changes to "Signed in as test@example.com"
-    page.wait_for_selector("text=Signed in as test@example.com", timeout=15000)
+    # 3. Verify sidebar changes to signed-in state
+    page.wait_for_selector(f"text=Signed in as {TEST_EMAIL}", timeout=15000)
 
     # 4. Click "🎯 ATS Scorer"
     page.locator("button:has-text('ATS Scorer')").click()
@@ -226,10 +302,10 @@ def test_e2e_error_path(app_servers, page, tmp_path):
     # Check if we are already signed in.
     if not page.locator("text=Signed in as").is_visible():
         page.wait_for_selector("text=Sign in", timeout=15000)
-        page.locator("input[aria-label='Email']:visible").first.fill("test@example.com")
-        page.locator("input[aria-label='Password']:visible").first.fill("password123")
+        page.locator("input[aria-label='Email']:visible").first.fill(TEST_EMAIL)
+        page.locator("input[aria-label='Password']:visible").first.fill(TEST_PASSWORD)
         page.locator("[data-testid='stFormSubmitButton'] button:visible").first.click()
-        page.wait_for_selector("text=Signed in as test@example.com", timeout=15000)
+        page.wait_for_selector(f"text=Signed in as {TEST_EMAIL}", timeout=15000)
 
     # Click "🎯 ATS Scorer"
     page.locator("button:has-text('ATS Scorer')").click()
@@ -254,37 +330,39 @@ def test_e2e_error_path(app_servers, page, tmp_path):
 def test_login_logout(app_servers, page):
     page.goto(app_servers.url)
 
-    # Log out if logged in
-    if page.locator("button:has-text('Sign out')").is_visible():
-        page.locator("button:has-text('Sign out')").click()
+    _logout(page)
 
+    # Invalid credentials should stay signed out and show an auth error.
     page.wait_for_selector("text=Sign in", timeout=15000)
-
-    # Fill in Sign in form
-    page.locator("input[aria-label='Email']:visible").first.fill("test@example.com")
-    page.locator("input[aria-label='Password']:visible").first.fill("password123")
+    page.locator("input[aria-label='Email']:visible").first.fill("invalid@example.com")
+    page.locator("input[aria-label='Password']:visible").first.fill("wrong-password")
     page.locator("[data-testid='stFormSubmitButton'] button:visible").first.click()
+    page.wait_for_selector("text=Wrong email or password", timeout=15000)
 
-    # Verify Signed in
-    page.wait_for_selector("text=Signed in as test@example.com", timeout=15000)
+    # Sign-up path should create a mock session in deterministic CI mode.
+    page.get_by_role("tab", name="Sign up").click()
+    page.locator("input[aria-label='Email']:visible").first.fill("signup@example.com")
+    page.locator("input[aria-label='Password (min 6 chars)']:visible").first.fill(TEST_PASSWORD)
+    page.locator("button:has-text('Create account')").click()
+    page.wait_for_selector("text=Signed in as signup@example.com", timeout=15000)
 
-    # Try signing up tab
-    page.locator("button:has-text('Sign out')").click()
-    page.wait_for_selector("text=Sign in", timeout=15000)
+    _logout(page)
+    _login(page)
+    _logout(page)
 
 
 def test_history(app_servers, page):
     page.goto(app_servers.url)
 
     if not page.locator("text=Signed in as").is_visible():
-        page.locator("input[aria-label='Email']:visible").first.fill("test@example.com")
-        page.locator("input[aria-label='Password']:visible").first.fill("password123")
+        page.locator("input[aria-label='Email']:visible").first.fill(TEST_EMAIL)
+        page.locator("input[aria-label='Password']:visible").first.fill(TEST_PASSWORD)
         page.locator("[data-testid='stFormSubmitButton'] button:visible").first.click()
-        page.wait_for_selector("text=Signed in as test@example.com", timeout=15000)
+        page.wait_for_selector(f"text=Signed in as {TEST_EMAIL}", timeout=15000)
 
     page.locator("button:has-text('ATS Scorer')").click()
 
-    resume_path = os.path.abspath("tests/fixtures/generated/good_resume.docx")
+    resume_path = _fixture_path("good_resume.docx")
     page.locator("input[type='file']").first.set_input_files(resume_path)
     page.locator("text=good_resume.docx").wait_for(state="visible", timeout=15000)
 
@@ -318,14 +396,14 @@ def test_pdf_download(app_servers, page):
     page.goto(app_servers.url)
 
     if not page.locator("text=Signed in as").is_visible():
-        page.locator("input[aria-label='Email']:visible").first.fill("test@example.com")
-        page.locator("input[aria-label='Password']:visible").first.fill("password123")
+        page.locator("input[aria-label='Email']:visible").first.fill(TEST_EMAIL)
+        page.locator("input[aria-label='Password']:visible").first.fill(TEST_PASSWORD)
         page.locator("[data-testid='stFormSubmitButton'] button:visible").first.click()
-        page.wait_for_selector("text=Signed in as test@example.com", timeout=15000)
+        page.wait_for_selector(f"text=Signed in as {TEST_EMAIL}", timeout=15000)
 
     page.locator("button:has-text('ATS Scorer')").click()
 
-    resume_path = os.path.abspath("tests/fixtures/generated/good_resume.docx")
+    resume_path = _fixture_path("good_resume.docx")
     page.locator("input[type='file']").first.set_input_files(resume_path)
     page.locator("text=good_resume.docx").wait_for(state="visible", timeout=15000)
 
@@ -355,14 +433,14 @@ def test_invalid_resume(app_servers, page):
     page.goto(app_servers.url)
 
     if not page.locator("text=Signed in as").is_visible():
-        page.locator("input[aria-label='Email']:visible").first.fill("test@example.com")
-        page.locator("input[aria-label='Password']:visible").first.fill("password123")
+        page.locator("input[aria-label='Email']:visible").first.fill(TEST_EMAIL)
+        page.locator("input[aria-label='Password']:visible").first.fill(TEST_PASSWORD)
         page.locator("[data-testid='stFormSubmitButton'] button:visible").first.click()
-        page.wait_for_selector("text=Signed in as test@example.com", timeout=15000)
+        page.wait_for_selector(f"text=Signed in as {TEST_EMAIL}", timeout=15000)
 
     page.locator("button:has-text('ATS Scorer')").click()
 
-    resume_path = os.path.abspath("tests/fixtures/generated/bad_resume.pdf")
+    resume_path = _fixture_path("bad_resume.pdf")
     page.locator("input[type='file']").first.set_input_files(resume_path)
     page.locator("text=bad_resume.pdf").wait_for(state="visible", timeout=15000)
 
@@ -374,10 +452,10 @@ def test_large_resume(app_servers, page, tmp_path):
     page.goto(app_servers.url)
 
     if not page.locator("text=Signed in as").is_visible():
-        page.locator("input[aria-label='Email']:visible").first.fill("test@example.com")
-        page.locator("input[aria-label='Password']:visible").first.fill("password123")
+        page.locator("input[aria-label='Email']:visible").first.fill(TEST_EMAIL)
+        page.locator("input[aria-label='Password']:visible").first.fill(TEST_PASSWORD)
         page.locator("[data-testid='stFormSubmitButton'] button:visible").first.click()
-        page.wait_for_selector("text=Signed in as test@example.com", timeout=15000)
+        page.wait_for_selector(f"text=Signed in as {TEST_EMAIL}", timeout=15000)
 
     page.locator("button:has-text('ATS Scorer')").click()
 
@@ -399,22 +477,22 @@ def test_multiple_uploads(app_servers, page):
     page.goto(app_servers.url)
 
     if not page.locator("text=Signed in as").is_visible():
-        page.locator("input[aria-label='Email']:visible").first.fill("test@example.com")
-        page.locator("input[aria-label='Password']:visible").first.fill("password123")
+        page.locator("input[aria-label='Email']:visible").first.fill(TEST_EMAIL)
+        page.locator("input[aria-label='Password']:visible").first.fill(TEST_PASSWORD)
         page.locator("[data-testid='stFormSubmitButton'] button:visible").first.click()
-        page.wait_for_selector("text=Signed in as test@example.com", timeout=15000)
+        page.wait_for_selector(f"text=Signed in as {TEST_EMAIL}", timeout=15000)
 
     page.locator("button:has-text('ATS Scorer')").click()
 
     # First run
-    resume_path_1 = os.path.abspath("tests/fixtures/generated/good_resume.docx")
+    resume_path_1 = _fixture_path("good_resume.docx")
     page.locator("input[type='file']").first.set_input_files(resume_path_1)
     page.locator("text=good_resume.docx").wait_for(state="visible", timeout=15000)
     page.locator("button:has-text('Analyze Resume')").click()
     page.locator("text=Analysis Results").wait_for(state="visible", timeout=30000)
 
     # Second run
-    resume_path_2 = os.path.abspath("tests/fixtures/generated/good_resume.pdf")
+    resume_path_2 = _fixture_path("good_resume.pdf")
     page.locator("input[type='file']").first.set_input_files(resume_path_2)
     page.locator("text=good_resume.pdf").wait_for(state="visible", timeout=15000)
     page.locator("button:has-text('Analyze Resume')").click()
@@ -425,14 +503,14 @@ def test_network_failure(app_servers, page):
     page.goto(app_servers.url)
 
     if not page.locator("text=Signed in as").is_visible():
-        page.locator("input[aria-label='Email']:visible").first.fill("test@example.com")
-        page.locator("input[aria-label='Password']:visible").first.fill("password123")
+        page.locator("input[aria-label='Email']:visible").first.fill(TEST_EMAIL)
+        page.locator("input[aria-label='Password']:visible").first.fill(TEST_PASSWORD)
         page.locator("[data-testid='stFormSubmitButton'] button:visible").first.click()
-        page.wait_for_selector("text=Signed in as test@example.com", timeout=15000)
+        page.wait_for_selector(f"text=Signed in as {TEST_EMAIL}", timeout=15000)
 
     page.locator("button:has-text('ATS Scorer')").click()
 
-    resume_path = os.path.abspath("tests/fixtures/generated/good_resume.docx")
+    resume_path = _fixture_path("good_resume.docx")
     page.locator("input[type='file']").first.set_input_files(resume_path)
     page.locator("text=good_resume.docx").wait_for(state="visible", timeout=15000)
 
@@ -452,14 +530,14 @@ def test_server_restart(app_servers, page):
     page.goto(app_servers.url)
 
     if not page.locator("text=Signed in as").is_visible():
-        page.locator("input[aria-label='Email']:visible").first.fill("test@example.com")
-        page.locator("input[aria-label='Password']:visible").first.fill("password123")
+        page.locator("input[aria-label='Email']:visible").first.fill(TEST_EMAIL)
+        page.locator("input[aria-label='Password']:visible").first.fill(TEST_PASSWORD)
         page.locator("[data-testid='stFormSubmitButton'] button:visible").first.click()
-        page.wait_for_selector("text=Signed in as test@example.com", timeout=15000)
+        page.wait_for_selector(f"text=Signed in as {TEST_EMAIL}", timeout=15000)
 
     page.locator("button:has-text('ATS Scorer')").click()
 
-    resume_path = os.path.abspath("tests/fixtures/generated/good_resume.docx")
+    resume_path = _fixture_path("good_resume.docx")
     page.locator("input[type='file']").first.set_input_files(resume_path)
     page.locator("text=good_resume.docx").wait_for(state="visible", timeout=15000)
 
@@ -482,10 +560,10 @@ def test_e2e_matrix(app_servers, page):
     page.goto(app_servers.url)
 
     if not page.locator("text=Signed in as").is_visible():
-        page.locator("input[aria-label='Email']:visible").first.fill("test@example.com")
-        page.locator("input[aria-label='Password']:visible").first.fill("password123")
+        page.locator("input[aria-label='Email']:visible").first.fill(TEST_EMAIL)
+        page.locator("input[aria-label='Password']:visible").first.fill(TEST_PASSWORD)
         page.locator("[data-testid='stFormSubmitButton'] button:visible").first.click()
-        page.wait_for_selector("text=Signed in as test@example.com", timeout=15000)
+        page.wait_for_selector(f"text=Signed in as {TEST_EMAIL}", timeout=15000)
 
     page.locator("button:has-text('ATS Scorer')").click()
 
@@ -509,13 +587,13 @@ def test_e2e_matrix(app_servers, page):
         ).click()
 
         # Input the JD text
-        jd_path = Path("tests/jd") / jd_name
+        jd_path = JD_DIR / jd_name
         jd_content = jd_path.read_text(encoding="utf-8")
 
         page.locator("textarea[placeholder='Paste the JD here...']").first.fill(jd_content)
 
         # Upload the resume file
-        resume_path = os.path.abspath(Path("tests/fixtures/generated") / resume_name)
+        resume_path = _fixture_path(resume_name)
         page.locator("input[type='file']").first.set_input_files(resume_path)
         page.locator(f"text={resume_name}").wait_for(state="visible", timeout=15000)
 
@@ -537,9 +615,9 @@ def test_dummy_fail_run(page):
 
     import shutil
 
-    shutil.copy("tests/conftest.py", tmp_path / "conftest.py")
+    shutil.copy(REPO_ROOT / "tests" / "conftest.py", tmp_path / "conftest.py")
 
-    artifacts_dir = Path("artifacts")
+    artifacts_dir = REPO_ROOT / "artifacts"
     if artifacts_dir.exists():
         for f in artifacts_dir.glob("failure_test_dummy_fail_run*.png"):
             try:
@@ -556,7 +634,7 @@ def test_dummy_fail_run(page):
         [sys.executable, "-m", "pytest", str(dummy_test_file), "-v"],
         capture_output=True,
         text=True,
-        cwd="e:/ATS",
+        cwd=REPO_ROOT,
     )
 
     assert res.returncode != 0
