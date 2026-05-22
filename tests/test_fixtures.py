@@ -7,7 +7,7 @@ from backend.services.resume_parser import parse_resume_file, FileParsingError
 
 
 def _ensure_fixture_dir():
-    d = Path("tests/fixtures")
+    d = Path("tests/generated")
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -83,7 +83,7 @@ class ImageReader:
 
 
 def test_fixtures_parse_and_failures():
-    fixtures = _ensure_fixture_dir()
+    generated = _ensure_fixture_dir()
 
     # normal docx
     normal_docx = _make_docx("John Doe\nSkills: Python, Docker, SQL", "normal_resume.docx")
@@ -109,7 +109,7 @@ def test_fixtures_parse_and_failures():
     bio = io.BytesIO()
     doc.save(bio)
     table_bytes = bio.getvalue()
-    (fixtures / "table_resume.docx").write_bytes(table_bytes)
+    (generated / "table_resume.docx").write_bytes(table_bytes)
     text_t, meta_t = parse_resume_file(table_bytes, "table_resume.docx")
     assert meta_t["success"] is True
     assert "software engineer" in text_t.lower()
@@ -127,7 +127,7 @@ def test_fixtures_parse_and_failures():
 
     # malformed PDF
     malformed = b"%PDF-1.4\n%corrupt\n" + b"0" * 10
-    (fixtures / "malformed.pdf").write_bytes(malformed)
+    (generated / "malformed.pdf").write_bytes(malformed)
     with pytest.raises(FileParsingError):
         parse_resume_file(malformed, "malformed.pdf")
 

@@ -102,6 +102,13 @@ black --check .
 pytest tests/ -v
 ```
 
+To catch formatting issues before they reach CI, install and enable pre-commit hooks once:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
 ## Deployment
 
 Recommended flow:

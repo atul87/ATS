@@ -14,3 +14,4 @@ backend/logs/
 artifacts/
 logs/
 playwright-report/
+tests/generated/
