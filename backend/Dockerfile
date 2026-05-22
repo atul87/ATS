@@ -10,6 +10,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxml2-dev \
     libxslt1-dev \
     libjpeg-dev \
+    poppler-utils \
+    tesseract-ocr \
     zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 

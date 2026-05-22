@@ -116,6 +116,8 @@ Recommended flow:
 - Backend: Railway (supports Docker and long-running ML workloads)
 - Frontend: Streamlit Community Cloud, or deploy the Streamlit container on Railway
 
+The backend Docker image installs the OCR runtime binaries (`tesseract-ocr` and `poppler-utils`) so scanned PDF support works in containers as well as locally.
+
 See `DEPLOYMENT.md` for step-by-step instructions, smoke tests, and troubleshooting guidance.
 
 ## Troubleshooting & Tips

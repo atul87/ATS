@@ -1,3 +1,8 @@
+import shutil
+
+import pytest
+
+
 def test_root_endpoint_lists_primary_routes(client):
     response = client.get("/")
 
@@ -16,3 +21,12 @@ def test_health_endpoint_reports_loaded_test_models(client):
         "nlp_loaded": True,
         "embedder_loaded": True,
     }
+
+
+@pytest.mark.skipif(
+    shutil.which("tesseract") is None or shutil.which("pdftoppm") is None,
+    reason="OCR runtime binaries are not installed in this environment",
+)
+def test_ocr_dependencies_present():
+    assert shutil.which("tesseract")
+    assert shutil.which("pdftoppm")
