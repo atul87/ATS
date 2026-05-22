@@ -1,6 +1,13 @@
 import os
 from abc import ABC, abstractmethod
 from typing import Dict, Any
+from pathlib import Path
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+except ImportError:
+    pass
 
 class AuthProvider(ABC):
     @abstractmethod
@@ -29,3 +36,4 @@ if os.getenv("MOCK_AUTH", "").lower() == "true":
 else:
     from frontend.services.supabase_auth import SupabaseAuthProvider
     auth_client = SupabaseAuthProvider()
+
