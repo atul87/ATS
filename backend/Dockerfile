@@ -23,6 +23,9 @@ RUN python -m spacy download en_core_web_md
 # Copy source
 COPY . /app
 
+ARG BUILD_TIME
+ENV BUILD_TIME=$BUILD_TIME
+
 ENV PYTHONPATH=/app
 
 EXPOSE 8000

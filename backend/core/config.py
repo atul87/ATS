@@ -1,5 +1,6 @@
 import os
 import logging
+import subprocess
 from pathlib import Path
 
 # Load .env from the project root (two levels up from this file) explicitly —
@@ -15,8 +16,41 @@ except ImportError:
 
 # api metadata
 APP_TITLE = "ATS RESUME ANALYZER API"
-APP_VERSION = "1.0.0"
+
+
+def get_commit_details():
+    # 1. COMMIT_SHA env var
+    env_commit = os.getenv("COMMIT_SHA") or os.getenv("RAILWAY_GIT_COMMIT_SHA")
+    if env_commit:
+        return env_commit[:7], "env"
+
+    # 2. git rev-parse --short HEAD
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            check=True,
+        )
+        sha = result.stdout.strip()
+        if sha:
+            return sha, "git"
+    except Exception:
+        pass
+
+    # 3. Fallback
+    return "unknown", "unknown"
+
+
+def get_commit_sha() -> str:
+    sha, _ = get_commit_details()
+    return sha
+
+
+APP_VERSION = os.getenv("APP_VERSION", "0.9.0-beta")
 APP_DESCRIPTION = "analyse resumes against job description using nlp + ml"
+
 
 ALLOWED_ORIGINS = ["https://appapppy-ktwxupi73vqhjzweksze9d.streamlit.app/"]
 
@@ -50,7 +84,9 @@ JD_KEYWORD_WEIGHT = 0.6
 JD_SEMANTIC_WEIGHT = 0.4
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")  # service_role — DB writes (bypasses RLS)
+SUPABASE_KEY = os.getenv(
+    "SUPABASE_SERVICE_KEY", os.getenv("SUPABASE_KEY", "")
+)  # service_role — DB writes (backend-only)
 SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")  # public anon — frontend auth calls
 SUPABASE_JWT_SECRET = os.getenv(
     "SUPABASE_JWT_SECRET", ""

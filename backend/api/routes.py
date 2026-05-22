@@ -145,6 +145,38 @@ async def health_check(request: Request):
     }
 
 
+@router.get("/version")
+async def version():
+    import os
+
+    return {
+        "version": os.getenv("APP_VERSION", cfg.APP_VERSION),
+        "environment": os.getenv("ENVIRONMENT", "development"),
+        "commit": cfg.get_commit_sha(),
+    }
+
+
+@router.get("/build")
+async def build():
+    import os
+
+    fast_mode = os.getenv("ATS_FAST_MODEL_MODE", "").lower() in {"1", "true", "yes", "on"}
+    return {
+        "build_time": os.getenv("BUILD_TIME", "unknown"),
+        "environment": os.getenv("ENVIRONMENT", "development"),
+        "fast_mode": fast_mode,
+    }
+
+
+@router.get("/commit")
+async def commit():
+    sha, source = cfg.get_commit_details()
+    return {
+        "commit": sha,
+        "source": source,
+    }
+
+
 @router.get("/history")
 async def get_history(
     user_id: str = Depends(get_current_user),

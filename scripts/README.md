@@ -90,6 +90,7 @@ USING (auth.uid()::text=user_id::text);
 
 CREATE INDEX idx_analyses_user_id ON public.analyses(user_id);
 CREATE INDEX idx_analyses_created_at ON public.analyses(created_at DESC);
+CREATE INDEX idx_analyses_user_created ON public.analyses(user_id, created_at DESC);
 ```
 
 Notes

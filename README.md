@@ -80,7 +80,7 @@ streamlit run frontend/streamlit_app.py
 Use `.env.example` as the source of truth. Key variables include:
 
 - `ENVIRONMENT` — `development` or `production` (production enables fail-fast env validation)
-- `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_ANON_KEY`, `SUPABASE_JWT_SECRET`
+- `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` for the backend, `SUPABASE_ANON_KEY` for the frontend, `SUPABASE_JWT_SECRET`
 - `GROQ_API_KEY` — optional but recommended for LLM suggestions
 - `MOCK_AUTH` — set `true` for local testing without real auth providers
 - `ATS_FAST_MODEL_MODE` — test-only switch used by CI to avoid downloading NLP models

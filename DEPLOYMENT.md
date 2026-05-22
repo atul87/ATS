@@ -13,7 +13,45 @@ docker compose up --build
 Open these endpoints to verify services are running:
 
 - Backend health: <http://localhost:8000/api/v1/health>
+- Release Version: <http://localhost:8000/version> (also <http://localhost:8000/api/v1/version>)
+- Build Metadata: <http://localhost:8000/build> (also <http://localhost:8000/api/v1/build>)
+- Commit SHA: <http://localhost:8000/commit> (also <http://localhost:8000/api/v1/commit>)
 - Frontend (Streamlit): <http://localhost:8501>
+
+### Release Metadata Endpoints
+
+The backend exposes three metadata endpoints that return details about the deployment:
+
+1. **/version**
+
+   ```json
+   {
+     "version": "0.9.0-beta",
+     "environment": "preprod",
+     "commit": "46b41b9"
+   }
+   ```
+
+2. **/build**
+
+   ```json
+   {
+     "build_time": "2026-05-23T12:45:00Z",
+     "environment": "preprod",
+     "fast_mode": false
+   }
+   ```
+
+3. **/commit**
+
+   ```json
+   {
+     "commit": "46b41b9",
+     "source": "git"
+   }
+   ```
+
+Note: The `BUILD_TIME` environment variable is automatically injected during container build time. In Docker Compose, this is passed using the build arg `BUILD_TIME`.
 
 ## Development environment (recommended env)
 
@@ -33,7 +71,7 @@ In production you must set these environment variables (example):
 ```env
 ENVIRONMENT=production
 SUPABASE_URL=https://your-supabase-url
-SUPABASE_KEY=service_role_key_here
+SUPABASE_SERVICE_KEY=service_role_key_here
 GROQ_API_KEY=your_groq_api_key
 MOCK_AUTH=false
 ```
@@ -51,6 +89,7 @@ Notes:
 - [ ] ✓ generate PDF report via `/api/v1/generate-pdf`
 - [ ] ✓ fetch history via `/api/v1/history`
 - [ ] ✓ inspect startup logs for model load times and env validation
+- [ ] ✓ metadata endpoints (`/version`, `/build`, `/commit`) respond with correct JSON payloads
 
 ## Deploying backend (Railway recommended)
 
@@ -65,7 +104,7 @@ Notes:
 Option A — Streamlit Community Cloud:
 
 1. Sign in with GitHub and create a new app from this repo.
-2. Set the entrypoint to `frontend/streamlit_app.py` and provide any secrets (Supabase anon key if used client-side).
+2. Set the entrypoint to `frontend/streamlit_app.py` and provide only frontend-safe secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `BACKEND_API_URL`.
 
 Option B — Deploy the Streamlit container on Railway (use `frontend/Dockerfile`).
 
@@ -150,4 +189,5 @@ CREATE POLICY "Users can delete their own analyses" ON public.analyses
 -- Indexes for performance
 CREATE INDEX idx_analyses_user_id ON public.analyses(user_id);
 CREATE INDEX idx_analyses_created_at ON public.analyses(created_at DESC);
+CREATE INDEX idx_analyses_user_created ON public.analyses(user_id, created_at DESC);
 ```

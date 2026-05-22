@@ -147,17 +147,47 @@ app.add_middleware(
 app.include_router(router)
 
 
+@app.get("/version")
+async def version():
+    return {
+        "version": os.getenv("APP_VERSION", core_config.APP_VERSION),
+        "environment": os.getenv("ENVIRONMENT", "development"),
+        "commit": core_config.get_commit_sha(),
+    }
+
+
+@app.get("/build")
+async def build():
+    return {
+        "build_time": os.getenv("BUILD_TIME", "unknown"),
+        "environment": os.getenv("ENVIRONMENT", "development"),
+        "fast_mode": _truthy_env("ATS_FAST_MODEL_MODE"),
+    }
+
+
+@app.get("/commit")
+async def commit():
+    sha, source = core_config.get_commit_details()
+    return {
+        "commit": sha,
+        "source": source,
+    }
+
+
 @app.get("/")
 async def root():
     return {
         "name": "ATS Resume Analyzer API",
-        "version": "2.0.0",
+        "version": core_config.APP_VERSION,
         "endpoints": {
             "POST   /api/v1/analyze-resume": "Analyze a resume",
             "GET    /api/v1/history": "Get user history",
             "DELETE /api/v1/history/:id": "Delete a history entry",
             "GET    /api/v1/health": "Health check",
             "POST   /api/v1/generate-pdf": "Generate PDF report from data",
+            "GET    /version": "Get release version metadata",
+            "GET    /build": "Get build metadata",
+            "GET    /commit": "Get commit metadata",
         },
     }
 
