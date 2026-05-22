@@ -681,25 +681,31 @@ def parse_resume(raw_text: str) -> Dict:
         return _local_basic_parse_resume(raw_text)
 
     prompt = RESUME_USER_PROMPT.format(raw_text=raw_text)
-    raw_response = _call_groq(client, RESUME_SYSTEM_PROMPT, prompt)
-    result = _try_parse_json(raw_response)
 
-    if result is not None:
-        return _validate_resume_result(result)
+    try:
+        raw_response = _call_groq(client, RESUME_SYSTEM_PROMPT, prompt)
+        result = _try_parse_json(raw_response)
 
-    logger.warning("Groq resume parse: first attempt returned invalid JSON, retrying...")
-    strict_prompt = (
-        "Your previous response was not valid JSON. "
-        "Return ONLY the raw JSON object, no markdown, no explanation, no code fences.\n\n" + prompt
-    )
-    raw_response = _call_groq(client, RESUME_SYSTEM_PROMPT, strict_prompt)
-    result = _try_parse_json(raw_response)
-    if result is not None:
-        return _validate_resume_result(result)
+        if result is not None:
+            return _validate_resume_result(result)
 
-    raise ValueError(
-        f"Groq returned unparseable response after retry. Raw response:\n{raw_response[:500]}"
-    )
+        logger.warning("Groq resume parse: first attempt returned invalid JSON, retrying...")
+        strict_prompt = (
+            "Your previous response was not valid JSON. "
+            "Return ONLY the raw JSON object, no markdown, no explanation, no code fences.\n\n"
+            + prompt
+        )
+        raw_response = _call_groq(client, RESUME_SYSTEM_PROMPT, strict_prompt)
+        result = _try_parse_json(raw_response)
+        if result is not None:
+            return _validate_resume_result(result)
+
+        raise ValueError(
+            f"Groq returned unparseable response after retry. Raw response:\n{raw_response[:500]}"
+        )
+    except Exception as exc:
+        logger.warning(f"Groq resume parse failed; using local regex fallback: {exc}")
+        return _local_basic_parse_resume(raw_text)
 
 
 JD_SYSTEM_PROMPT = (
@@ -736,24 +742,29 @@ def parse_job_description(raw_text: str) -> Dict:
 
     prompt = JD_USER_PROMPT.format(raw_text=raw_text)
 
-    raw_response = _call_groq(client, JD_SYSTEM_PROMPT, prompt)
-    result = _try_parse_json(raw_response)
-    if result is not None:
-        return _validate_jd_result(result)
+    try:
+        raw_response = _call_groq(client, JD_SYSTEM_PROMPT, prompt)
+        result = _try_parse_json(raw_response)
+        if result is not None:
+            return _validate_jd_result(result)
 
-    logger.warning("Groq JD parse: first attempt returned invalid JSON, retrying...")
-    strict_prompt = (
-        "Your previous response was not valid JSON. "
-        "Return ONLY the raw JSON object, no markdown, no explanation, no code fences.\n\n" + prompt
-    )
-    raw_response = _call_groq(client, JD_SYSTEM_PROMPT, strict_prompt)
-    result = _try_parse_json(raw_response)
-    if result is not None:
-        return _validate_jd_result(result)
+        logger.warning("Groq JD parse: first attempt returned invalid JSON, retrying...")
+        strict_prompt = (
+            "Your previous response was not valid JSON. "
+            "Return ONLY the raw JSON object, no markdown, no explanation, no code fences.\n\n"
+            + prompt
+        )
+        raw_response = _call_groq(client, JD_SYSTEM_PROMPT, strict_prompt)
+        result = _try_parse_json(raw_response)
+        if result is not None:
+            return _validate_jd_result(result)
 
-    raise ValueError(
-        f"Groq returned unparseable response after retry. Raw response:\n{raw_response[:500]}"
-    )
+        raise ValueError(
+            f"Groq returned unparseable response after retry. Raw response:\n{raw_response[:500]}"
+        )
+    except Exception as exc:
+        logger.warning(f"Groq JD parse failed; using local regex fallback: {exc}")
+        return _local_basic_parse_jd(raw_text)
 
 
 # it will make sure, that the parse json has all the valid fields we expect

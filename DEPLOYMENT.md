@@ -84,3 +84,70 @@ Option B — Deploy the Streamlit container on Railway (use `frontend/Dockerfile
 
 - Keep `.env.example` updated with any new secrets.
 - Ensure `artifacts/`, `logs/`, `.pytest_cache/`, and `playwright-report/` are in `.gitignore` (already included).
+
+## Load Testing & SLA Thresholds
+
+To verify the performance of the ATS resume scoring engine under concurrency, we run load tests using [Locust](file:///e:/ATS/load/locustfile.py).
+
+### How to Run Load Tests
+
+1. Start the backend locally:
+
+   ```bash
+   uvicorn backend.main:app --port 8000
+   ```
+
+2. Run Locust from the root directory:
+
+   ```bash
+   locust -f load/locustfile.py --host=http://localhost:8000
+   ```
+
+3. Open the Locust web UI at <http://localhost:8089> to configure spawn rate and target users.
+
+### SLA Performance Thresholds
+
+For production readiness, the application must meet the following SLAs under a concurrent load of up to 50 users:
+
+- **95th Percentile Latency**: `< 2.0 seconds` for resume analysis requests.
+- **Error Rate**: `< 1.0%` total error rate during sustained testing.
+- **Resource Constraints**: Backend memory utilization must remain under `2GB` (configured in docker-compose.yml mem_limit).
+
+## Database Setup (Supabase)
+
+The project uses Supabase as a persistent storage backend when `MOCK_AUTH=false`. The `analyses` table stores parsed results and history.
+
+### SQL Schema Definitions
+
+Run the following SQL in your Supabase SQL Editor to create the necessary table and security policies:
+
+```sql
+-- Create the analyses table
+CREATE TABLE public.analyses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL,
+    filename TEXT NOT NULL,
+    ats_score NUMERIC NOT NULL DEFAULT 0,
+    keyword_match NUMERIC NOT NULL DEFAULT 0,
+    missing_keywords JSONB NOT NULL DEFAULT '[]'::jsonb,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
+    analysis_result JSONB NOT NULL DEFAULT '{}'::jsonb
+);
+
+-- Enable Row Level Security (RLS)
+ALTER TABLE public.analyses ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies
+CREATE POLICY "Users can insert their own analyses" ON public.analyses
+    FOR INSERT WITH CHECK (auth.uid()::text = user_id::text);
+
+CREATE POLICY "Users can view their own analyses" ON public.analyses
+    FOR SELECT USING (auth.uid()::text = user_id::text);
+
+CREATE POLICY "Users can delete their own analyses" ON public.analyses
+    FOR DELETE USING (auth.uid()::text = user_id::text);
+
+-- Indexes for performance
+CREATE INDEX idx_analyses_user_id ON public.analyses(user_id);
+CREATE INDEX idx_analyses_created_at ON public.analyses(created_at DESC);
+```

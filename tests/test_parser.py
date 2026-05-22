@@ -1,4 +1,19 @@
+import pytest
+
 from backend.services import groq_parser
+
+
+class _GroqFailure(Exception):
+    pass
+
+
+def _force_groq_failure(monkeypatch, error):
+    monkeypatch.setattr(groq_parser, "_get_client", lambda: object())
+
+    def _raise(*_args, **_kwargs):
+        raise error
+
+    monkeypatch.setattr(groq_parser, "_call_groq", _raise)
 
 
 def test_resume_parser_uses_local_fallback_without_groq_key(monkeypatch):
@@ -77,3 +92,53 @@ def test_fallback_parser_returns_defaults_for_empty_text(monkeypatch):
     assert jd["required_skills"] == []
     assert jd["keywords"] == []
     assert jd["parser_source"] == "local_regex"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        _GroqFailure("401 invalid_api_key"),
+        TimeoutError("request timed out"),
+        _GroqFailure("429 rate limit exceeded"),
+    ],
+    ids=["invalid-key", "timeout", "rate-limit"],
+)
+def test_resume_parser_falls_back_on_groq_failure(monkeypatch, error):
+    _force_groq_failure(monkeypatch, error)
+
+    result = groq_parser.parse_resume(
+        "Jane Doe\nPython, FastAPI, Docker\nExperience: Built APIs and reduced latency."
+    )
+
+    assert result["parser_source"] == "local_regex"
+    assert "Python" in result["skills"]
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        _GroqFailure("401 invalid_api_key"),
+        TimeoutError("request timed out"),
+        _GroqFailure("429 rate limit exceeded"),
+    ],
+    ids=["invalid-key", "timeout", "rate-limit"],
+)
+def test_job_description_parser_falls_back_on_groq_failure(monkeypatch, error):
+    _force_groq_failure(monkeypatch, error)
+
+    result = groq_parser.parse_job_description(
+        "Backend Engineer\nRequired: Python, FastAPI, Docker\nPreferred: AWS"
+    )
+
+    assert result["parser_source"] == "local_regex"
+    assert "Python" in result["required_skills"]
+
+
+def test_resume_parser_falls_back_on_malformed_groq_response(monkeypatch):
+    monkeypatch.setattr(groq_parser, "_get_client", lambda: object())
+    monkeypatch.setattr(groq_parser, "_call_groq", lambda *_args, **_kwargs: "not json")
+
+    result = groq_parser.parse_resume("Jane Doe\nSkills: Python, Docker")
+
+    assert result["parser_source"] == "local_regex"
+    assert "Python" in result["skills"]

@@ -70,3 +70,33 @@ jobs:
             artifacts/
             logs/
 
+  docker-dry-run:
+    runs-on: ubuntu-latest
+    needs: lint-and-unit
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cp .env.example .env
+          sed -i 's/MOCK_AUTH=false/MOCK_AUTH=true/g' .env
+
+      - name: Build Docker images
+        run: docker compose build
+
+      - name: Run backend container and verify health
+        run: |
+          docker compose up -d backend
+          # Poll backend health endpoint
+          for i in {1..30}; do
+            if curl -s -f http://localhost:8000/api/v1/health; then
+              echo "Backend is healthy!"
+              exit 0
+            fi
+            echo "Waiting for backend to be healthy..."
+            sleep 2
+          done
+          echo "Backend failed to become healthy. Logs:"
+          docker compose logs backend
+          exit 1
