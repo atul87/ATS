@@ -1,6 +1,7 @@
 from typing import Any, Dict
 from frontend.services.auth_provider import AuthProvider
 
+
 class MockAuthProvider(AuthProvider):
     def sign_in_with_password(self, email: str, password: str) -> Dict[str, Any]:
         return {

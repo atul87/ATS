@@ -11,6 +11,7 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 _ASYMMETRIC_ALGS = ["ES256", "RS256"]
 _jwks_client: jwt.PyJWKClient | None = None
 
+
 def _get_jwks_client() -> jwt.PyJWKClient | None:
     global _jwks_client
     if _jwks_client is not None:
@@ -20,6 +21,7 @@ def _get_jwks_client() -> jwt.PyJWKClient | None:
     jwks_url = f"{SUPABASE_URL.rstrip('/')}/auth/v1/.well-known/jwks.json"
     _jwks_client = jwt.PyJWKClient(jwks_url, cache_keys=True, lifespan=3600)
     return _jwks_client
+
 
 def _verify_token(token: str) -> dict:
     header = jwt.get_unverified_header(token)
@@ -52,6 +54,7 @@ def _verify_token(token: str) -> dict:
         )
 
     raise jwt.InvalidTokenError(f"Unsupported JWT algorithm: {alg}")
+
 
 def get_current_user_real(
     creds: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),

@@ -5,9 +5,11 @@ from pathlib import Path
 
 try:
     from dotenv import load_dotenv
+
     load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 except ImportError:
     pass
+
 
 class AuthProvider(ABC):
     @abstractmethod
@@ -30,10 +32,12 @@ class AuthProvider(ABC):
     def sign_out(self) -> None:
         pass
 
+
 if os.getenv("MOCK_AUTH", "").lower() == "true":
     from frontend.services.mock_auth import MockAuthProvider
+
     auth_client = MockAuthProvider()
 else:
     from frontend.services.supabase_auth import SupabaseAuthProvider
-    auth_client = SupabaseAuthProvider()
 
+    auth_client = SupabaseAuthProvider()

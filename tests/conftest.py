@@ -162,7 +162,7 @@ def playwright_artifacts(request):
 
         artifacts_dir = Path("artifacts")
         artifacts_dir.mkdir(parents=True, exist_ok=True)
-        
+
         test_name = node.name.replace("[", "_").replace("]", "_")
 
         screenshot_path = artifacts_dir / f"failure_{test_name}.png"
@@ -178,7 +178,7 @@ def playwright_artifacts(request):
             print(f"Captured failure trace to {trace_path}")
         except Exception as e:
             print(f"Failed to save trace: {e}")
-            
+
         logs_dir = Path("logs")
         for log_name in ["backend_server.log", "frontend_server.log"]:
             log_src = logs_dir / log_name
@@ -193,4 +193,3 @@ def playwright_artifacts(request):
             context.tracing.stop()
         except Exception:
             pass
-

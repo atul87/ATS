@@ -73,7 +73,9 @@ def analyze_full_resume(
             embedder=embedder,
             nlp=nlp,
         )
-    jd_match_time = time.time() - jd_match_start if (job_description and job_description.strip()) else 0.0
+    jd_match_time = (
+        time.time() - jd_match_start if (job_description and job_description.strip()) else 0.0
+    )
 
     # Phase 3: Validate skills and calculate scores
     score_start = time.time()
@@ -135,7 +137,6 @@ def analyze_full_resume(
             "parser": "groq",
         },
     )
-
 
     validated_raw = skill_validation.get("validated_skills", [])
     unvalidated_raw = skill_validation.get("unvalidated_skills", [])

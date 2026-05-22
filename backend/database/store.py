@@ -5,6 +5,7 @@ from backend.database.memory_store import MemoryStore
 
 _db_instance: DocumentStore | None = None
 
+
 def get_db() -> DocumentStore:
     global _db_instance
     if _db_instance is None:

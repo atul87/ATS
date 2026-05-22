@@ -9,6 +9,7 @@ from backend.core.config import SUPABASE_URL, SUPABASE_KEY
 
 logger = logging.getLogger("ats_resume_scorer")
 
+
 class SupabaseStore(DocumentStore):
     def _get_headers(self) -> Optional[Dict[str, str]]:
         if not SUPABASE_URL or not SUPABASE_KEY:
@@ -20,7 +21,9 @@ class SupabaseStore(DocumentStore):
             "Prefer": "return=representation",
         }
 
-    async def save_analysis(self, user_id: str, filename: str, analysis_result: Dict) -> Optional[str]:
+    async def save_analysis(
+        self, user_id: str, filename: str, analysis_result: Dict
+    ) -> Optional[str]:
         headers = self._get_headers()
         if not headers:
             return None
@@ -106,7 +109,9 @@ class SupabaseStore(DocumentStore):
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.delete(
-                    url, headers=headers, params={"id": f"eq.{analysis_id}", "user_id": f"eq.{user_id}"}
+                    url,
+                    headers=headers,
+                    params={"id": f"eq.{analysis_id}", "user_id": f"eq.{user_id}"},
                 )
                 response.raise_for_status()
                 return True

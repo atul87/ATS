@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional
 
+
 class DocumentStore(ABC):
     @abstractmethod
-    async def save_analysis(self, user_id: str, filename: str, analysis_result: Dict) -> Optional[str]:
+    async def save_analysis(
+        self, user_id: str, filename: str, analysis_result: Dict
+    ) -> Optional[str]:
         """Save a resume analysis result to the database."""
         pass
 

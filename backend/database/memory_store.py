@@ -4,18 +4,21 @@ import json
 from typing import Dict, List, Optional
 from backend.database.base import DocumentStore
 
+
 class MemoryStore(DocumentStore):
     def __init__(self):
         self.history: List[Dict] = []
 
-    async def save_analysis(self, user_id: str, filename: str, analysis_result: Dict) -> Optional[str]:
+    async def save_analysis(
+        self, user_id: str, filename: str, analysis_result: Dict
+    ) -> Optional[str]:
         inserted_id = str(uuid.uuid4())
-        
+
         def _json_default(o):
             if hasattr(o, "model_dump"):
                 return o.model_dump()
             return str(o)
-            
+
         serializable_result = json.loads(json.dumps(analysis_result, default=_json_default))
 
         self.history.append(
