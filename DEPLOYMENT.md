@@ -95,9 +95,10 @@ Notes:
 
 1. Sign in to Railway with GitHub and create a new project.
 2. Choose "Deploy from GitHub" and select this repository (`atul87/ATS`).
-3. Add environment variables from the **Production environment** section.
-4. Configure build command (optional): `docker build -t ats_backend backend/` or allow Railway to use the `Dockerfile` at `backend/Dockerfile`.
-5. Railway will build and deploy on push. Monitor logs for startup and model-loading messages.
+3. In the Railway service settings, set the Dockerfile path to `backend/Dockerfile`.
+4. Add environment variables from the **Production environment** section.
+5. Do not rely on Railpack auto-detection for this service; the FastAPI app lives under `backend/main.py`, so the repo-root heuristic will fail.
+6. Railway will build and deploy on push. Monitor logs for startup and model-loading messages.
 
 ## Deploying frontend
 
@@ -117,6 +118,7 @@ Option B — Deploy the Streamlit container on Railway (use `frontend/Dockerfile
 ## Troubleshooting
 
 - If startup fails with missing env vars: ensure `ENVIRONMENT` and required keys are present.
+- If Railway reports "No start command detected", confirm the service is using `backend/Dockerfile` and not the default Railpack auto-detect path.
 - If model load falls back to a smaller spaCy model, consider provisioning more memory or pre-pulling models in your container build step.
 
 ## Additions
