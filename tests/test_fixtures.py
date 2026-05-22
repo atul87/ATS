@@ -1,8 +1,10 @@
 import io
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
+from backend.services import resume_parser
 from backend.services.resume_parser import parse_resume_file, FileParsingError
 
 
@@ -82,7 +84,7 @@ class ImageReader:
         return self._bio
 
 
-def test_fixtures_parse_and_failures():
+def test_fixtures_parse_and_failures(monkeypatch):
     generated = _ensure_fixture_dir()
 
     # normal docx
@@ -120,10 +122,27 @@ def test_fixtures_parse_and_failures():
     assert meta_p["success"] is True
     assert "python" in text_p.lower()
 
-    # image-only PDF should fail text extraction
+    # image-only PDF should fall back to OCR text extraction
     img_pdf = _make_pdf("", "image_only_resume.pdf", image_only=True)
-    with pytest.raises(FileParsingError):
-        parse_resume_file(img_pdf, "image_only_resume.pdf")
+    monkeypatch.setattr(
+        resume_parser,
+        "convert_from_bytes",
+        lambda *_args, **_kwargs: [object()],
+    )
+    monkeypatch.setattr(
+        resume_parser,
+        "pytesseract",
+        SimpleNamespace(
+            image_to_string=lambda *_args, **_kwargs: "OCR Resume\nSkills: Python, OCR, Docker"
+        ),
+    )
+
+    text_o, meta_o = parse_resume_file(img_pdf, "image_only_resume.pdf")
+    assert meta_o["success"] is True
+    assert "ocr" in text_o.lower()
+    assert "python" in text_o.lower()
+
+    monkeypatch.undo()
 
     # malformed PDF
     malformed = b"%PDF-1.4\n%corrupt\n" + b"0" * 10

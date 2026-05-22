@@ -17,6 +17,16 @@ import pdfplumber
 from docx import Document
 from pypdf import PdfReader
 
+try:
+    from pdf2image import convert_from_bytes
+except ImportError:
+    convert_from_bytes = None
+
+try:
+    import pytesseract
+except ImportError:
+    pytesseract = None
+
 from backend.utils.file_utils import (
     FileParsingError,
     TextExtractionError,
@@ -150,6 +160,42 @@ def _extract_pdf_with_pypdf(file_data: bytes) -> str:
     return text.strip()
 
 
+def _extract_pdf_with_ocr(file_data: bytes) -> str:
+    if convert_from_bytes is None or pytesseract is None:
+        raise TextExtractionError(
+            "OCR dependencies are unavailable",
+            user_message=(
+                "OCR fallback is unavailable in this environment. "
+                "Please install pdf2image and pytesseract, plus the system OCR binaries."
+            ),
+        )
+
+    try:
+        images = convert_from_bytes(file_data)
+    except Exception as e:
+        raise TextExtractionError(
+            "Failed to render PDF pages for OCR",
+            user_message="No text could be extracted from the PDF.",
+        ) from e
+
+    text_parts = []
+    for image in images:
+        try:
+            page_text = pytesseract.image_to_string(image)
+        except Exception:
+            continue
+
+        if page_text and page_text.strip():
+            text_parts.append(page_text.strip())
+
+    if not text_parts:
+        raise TextExtractionError(
+            "OCR extracted no text", user_message="No text could be extracted from the PDF."
+        )
+
+    return "\n".join(text_parts).strip()
+
+
 def extract_text_from_pdf(file_data: bytes) -> str:
     try:
         result, used_fallback = with_fallback(
@@ -161,12 +207,22 @@ def extract_text_from_pdf(file_data: bytes) -> str:
         return result
 
     except Exception as e:
-        log_error(e, context="extract_text_from_pdf")
-        raise FileParsingError(
-            "Failed to extract text from PDF using both pdfplumber and pypdf. "
-            "The PDF may be corrupted, password-protected, or contain only scanned images. "
-            "Please ensure it contains selectable text."
-        ) from e
+        log_warning(
+            f"Selectable-text PDF extraction failed; trying OCR fallback: {e}",
+            context="resume_parser",
+        )
+
+        try:
+            ocr_text = _extract_pdf_with_ocr(file_data)
+            log_info("PDF extraction succeeded using OCR fallback", context="resume_parser")
+            return ocr_text
+        except Exception as ocr_error:
+            log_error(ocr_error, context="extract_text_from_pdf")
+            raise FileParsingError(
+                "Failed to extract text from PDF using selectable text extraction and OCR. "
+                "The PDF may be corrupted, password-protected, or contain only scanned images. "
+                "Please ensure it contains selectable text or install OCR support."
+            ) from ocr_error
 
 
 def extract_text_from_docx(file_data: bytes) -> str:

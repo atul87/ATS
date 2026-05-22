@@ -26,8 +26,10 @@ rapidfuzz>=3.6
 # ── Backend: file parsing ──
 pdfplumber>=0.11
 pypdf>=6.0
+pdf2image>=1.17
 python-docx>=1.1
 python-magic>=0.4.27
+pytesseract>=0.3.13
 
 # ── Backend: PDF report generation ──
 jinja2>=3.1

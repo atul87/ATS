@@ -122,6 +122,7 @@ See `DEPLOYMENT.md` for step-by-step instructions, smoke tests, and troubleshoot
 
 - If startup fails complaining about missing env vars in production, ensure `ENVIRONMENT=production` and required keys are present; the service is intentionally fail-fast in production.
 - If spaCy model fallback occurs, confirm `en_core_web_md` is installed or increase container memory / pre-pull models during image build.
+- If scanned PDFs do not OCR correctly, install the OCR runtime binaries (`poppler` and `tesseract`) on the host image in addition to the Python packages.
 - For parsing errors with malformed PDFs, check backend logs (`docker compose logs backend --follow`) — the parser returns a 422 on parse failures.
 
 ## Contributing

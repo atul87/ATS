@@ -1,5 +1,6 @@
 import io
 import time
+from types import SimpleNamespace
 
 from docx import Document
 from pypdf import PdfWriter
@@ -118,6 +119,18 @@ def test_analyze_resume_rejects_image_only_pdf(client, monkeypatch):
     monkeypatch.setattr(
         resume_parser.magic, "from_buffer", lambda *_args, **_kwargs: "application/pdf"
     )
+    monkeypatch.setattr(
+        resume_parser,
+        "convert_from_bytes",
+        lambda *_args, **_kwargs: [object()],
+    )
+    monkeypatch.setattr(
+        resume_parser,
+        "pytesseract",
+        SimpleNamespace(
+            image_to_string=lambda *_args, **_kwargs: "OCR fallback resume with Python, FastAPI, Docker"
+        ),
+    )
 
     response = client.post(
         "/api/v1/analyze-resume",
@@ -131,8 +144,10 @@ def test_analyze_resume_rejects_image_only_pdf(client, monkeypatch):
         },
     )
 
-    assert response.status_code == 422
-    assert "Could not read or parse the resume" in response.json()["detail"]
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["ATS_score"] >= 0
+    assert "Python" in body["skills"]
 
 
 def test_analyze_resume_performance_smoke(client, monkeypatch):
