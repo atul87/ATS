@@ -120,6 +120,18 @@ The backend Docker image installs the OCR runtime binaries (`tesseract-ocr` and 
 
 See `DEPLOYMENT.md` for step-by-step instructions, smoke tests, and troubleshooting guidance.
 
+## Load Testing
+
+The `load/locustfile.py` scenario exercises normal resume uploads, OCR-backed scanned PDFs, and malformed file handling.
+
+Run it with mock auth enabled for local or container benchmarking:
+
+```bash
+MOCK_AUTH=true locust -f load/locustfile.py --host=http://localhost:8000
+```
+
+Use Locust's UI or CLI flags to test at 10 or 50 concurrent users and inspect average latency, p95, and error rates.
+
 ## Troubleshooting & Tips
 
 - If startup fails complaining about missing env vars in production, ensure `ENVIRONMENT=production` and required keys are present; the service is intentionally fail-fast in production.
