@@ -105,7 +105,7 @@ Notes:
 Option A — Streamlit Community Cloud:
 
 1. Sign in with GitHub and create a new app from this repo.
-2. Set the entrypoint to `frontend/streamlit_app.py` and provide only frontend-safe secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `BACKEND_API_URL`.
+2. Set the entrypoint to `frontend/streamlit_app.py` and provide only frontend-safe secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, plus backend URL as either `[backend].url` (preferred) or `BACKEND_API_URL`.
 
 Option B — Deploy the Streamlit container on Railway (use `frontend/Dockerfile`).
 

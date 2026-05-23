@@ -1,3 +1,4 @@
+import os
 from typing import Any, Dict, List
 
 import requests
@@ -7,10 +8,23 @@ DEFAULT_BACKEND_URL = "http://localhost:8000"
 
 
 def _backend_url() -> str:
+    # Support both legacy top-level key and nested backend.url secret layouts.
+    from_env = os.getenv("BACKEND_API_URL", "").strip()
+    if from_env:
+        return from_env
+
+    top_level = st.secrets.get("BACKEND_API_URL")
+    if top_level:
+        return str(top_level).strip()
+
     try:
-        return st.secrets["backend"]["url"]
+        nested_url = st.secrets["backend"]["url"]
+        if nested_url:
+            return str(nested_url).strip()
     except (KeyError, FileNotFoundError):
-        return DEFAULT_BACKEND_URL
+        pass
+
+    return DEFAULT_BACKEND_URL
 
 
 def _auth_headers(access_token: str) -> Dict[str, str]:
