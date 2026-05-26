@@ -77,6 +77,9 @@ def _render_upload_area(analysis_mode: str):
             help="Supported: PDF, DOC, DOCX (max 5 MB)",
             key="resume_upload",
         )
+        # Clear any previously cached analysis when a new file is uploaded
+        if resume_file and st.session_state.get("scorer_analysis"):
+            st.session_state.pop("scorer_analysis", None)
         if resume_file:
             st.success(f"✅ {resume_file.name} ({resume_file.size / 1024:.1f} KB)")
 

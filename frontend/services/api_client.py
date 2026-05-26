@@ -9,19 +9,27 @@ DEFAULT_BACKEND_URL = "http://localhost:8000"
 
 def _backend_url() -> str:
     # Support both legacy top-level key and nested backend.url secret layouts.
+    # During E2E we may set E2E_BACKEND_PORT to direct Streamlit to the test backend.
+    e2e_port = os.getenv("E2E_BACKEND_PORT", "").strip()
+    if e2e_port:
+        return f"http://127.0.0.1:{e2e_port}"
+
     from_env = os.getenv("BACKEND_API_URL", "").strip()
     if from_env:
         return from_env
 
-    top_level = st.secrets.get("BACKEND_API_URL")
-    if top_level:
-        return str(top_level).strip()
+    try:
+        top_level = st.secrets.get("BACKEND_API_URL")
+        if top_level:
+            return str(top_level).strip()
+    except Exception:
+        pass
 
     try:
         nested_url = st.secrets["backend"]["url"]
         if nested_url:
             return str(nested_url).strip()
-    except (KeyError, FileNotFoundError):
+    except Exception:
         pass
 
     return DEFAULT_BACKEND_URL

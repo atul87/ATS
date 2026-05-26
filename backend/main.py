@@ -3,8 +3,11 @@ import os
 import hashlib
 import re
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+
+# Prometheus metrics
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
 from backend.core.config import (
     ALLOWED_ORIGINS,
@@ -47,6 +50,16 @@ class _FastEmbedder:
         return vector
 
 
+# Metrics (Prometheus)
+REQUEST_COUNT = Counter(
+    "ats_requests_total", "Total HTTP requests received", ["method", "endpoint", "http_status"]
+)
+REQUEST_LATENCY = Histogram(
+    "ats_request_latency_seconds", "HTTP request latency (seconds)", ["method", "endpoint"]
+)
+MODEL_LOAD_SECONDS = Gauge("ats_model_load_seconds", "Model load time (seconds)", ["model"])
+
+
 # Log startup environment validation. In production, fail fast on missing vars.
 missing_env = core_config.check_required_env_vars()
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").lower()
@@ -69,6 +82,10 @@ async def lifespan(app: FastAPI):
         app.state.nlp = _FastNLP()
         app.state.embedder = _FastEmbedder()
         logger.info("ATS_FAST_MODEL_MODE enabled; using deterministic lightweight models.")
+        try:
+            MODEL_LOAD_SECONDS.labels(model="fast_mode").set(0)
+        except Exception:
+            pass
     else:
         logger.info(f"Loading spaCy NLP model: {SPACY_MODEL_PRIMARY}")
         import spacy
@@ -85,6 +102,10 @@ async def lifespan(app: FastAPI):
                     "model_name": SPACY_MODEL_PRIMARY,
                 },
             )
+            try:
+                MODEL_LOAD_SECONDS.labels(model=SPACY_MODEL_PRIMARY).set(spacy_time)
+            except Exception:
+                pass
         except OSError:
             logger.warning(
                 f"{SPACY_MODEL_PRIMARY} not found — falling back to {SPACY_MODEL_SECONDARY}"
@@ -114,6 +135,10 @@ async def lifespan(app: FastAPI):
                 "model_name": SENTENCE_TRANSFORMER_MODEL,
             },
         )
+        try:
+            MODEL_LOAD_SECONDS.labels(model=SENTENCE_TRANSFORMER_MODEL).set(st_time)
+        except Exception:
+            pass
 
     total_time = time.time() - start_time
     logger.info(
@@ -136,6 +161,26 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
+
+# Prometheus middleware to instrument requests
+@app.middleware("http")
+async def prometheus_middleware(request: Request, call_next):
+    import time
+
+    start = time.time()
+    response = await call_next(request)
+    latency = time.time() - start
+    try:
+        endpoint = request.url.path
+        REQUEST_LATENCY.labels(method=request.method, endpoint=endpoint).observe(latency)
+        REQUEST_COUNT.labels(
+            method=request.method, endpoint=endpoint, http_status=str(response.status_code)
+        ).inc()
+    except Exception:
+        pass
+    return response
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -145,6 +190,13 @@ app.add_middleware(
 )
 
 app.include_router(router)
+
+
+@app.get("/metrics")
+async def metrics():
+    from fastapi.responses import Response
+
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/version")

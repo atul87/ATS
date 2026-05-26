@@ -23,7 +23,7 @@ def _secret(key: str, section: str = "supabase") -> str:
         return val
     try:
         return st.secrets[section][key]
-    except (KeyError, FileNotFoundError, AttributeError):
+    except Exception:
         return ""
 
 

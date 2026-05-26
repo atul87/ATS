@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libjpeg-dev \
     poppler-utils \
     tesseract-ocr \
+    curl \
     zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 

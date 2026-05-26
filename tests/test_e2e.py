@@ -74,11 +74,20 @@ class AppServerController(str):
 
     def stop_backend(self):
         if self.backend_proc:
-            self.backend_proc.terminate()
-            try:
-                self.backend_proc.wait(timeout=5)
-            except Exception:
-                self.backend_proc.kill()
+            import platform
+
+            if platform.system() == "Windows":
+                subprocess.run(
+                    ["taskkill", "/F", "/T", "/PID", str(self.backend_proc.pid)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            else:
+                self.backend_proc.terminate()
+                try:
+                    self.backend_proc.wait(timeout=5)
+                except Exception:
+                    self.backend_proc.kill()
             self.backend_proc = None
             try:
                 self.backend_log.close()
@@ -224,7 +233,16 @@ def app_servers():
     # Teardown
     controller.stop_backend()
     if controller.frontend_proc:
-        controller.frontend_proc.terminate()
+        import platform
+
+        if platform.system() == "Windows":
+            subprocess.run(
+                ["taskkill", "/F", "/T", "/PID", str(controller.frontend_proc.pid)],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            controller.frontend_proc.terminate()
         try:
             controller.frontend_proc.wait(timeout=5)
         except Exception:

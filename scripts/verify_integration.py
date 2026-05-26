@@ -21,7 +21,8 @@ import time
 import argparse
 import requests
 import subprocess
-from typing import Optional
+
+from pathlib import Path
 
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -170,6 +171,10 @@ def main():
         print("Warning: exact score not found in history; proceeding to next checks")
 
     pdf_bytes = generate_pdf(token, analysis_result)
+    # save PDF artifact for inspection
+    Path("artifacts").mkdir(exist_ok=True)
+    with open("artifacts/integration_report.pdf", "wb") as fh:
+        fh.write(pdf_bytes)
 
     restarted = restart_backend_cmd()
     if restarted:
