@@ -70,15 +70,18 @@ In production you must set these environment variables (example):
 
 ```env
 ENVIRONMENT=production
-SUPABASE_URL=https://your-supabase-url
+SUPABASE_URL=https://lzudxufewzruizbwnunb.supabase.co
 SUPABASE_SERVICE_KEY=service_role_key_here
+SUPABASE_JWT_SECRET=jwt_secret_here
 GROQ_API_KEY=your_groq_api_key
 MOCK_AUTH=false
+BUILD_TIME=2026-05-27T22:00:00Z
 ```
 
 Notes:
 
 - When `ENVIRONMENT=production` the backend will fail-fast if required env vars are missing.
+- Set `BUILD_TIME` to the deployment timestamp, or inject it during the Docker build.
 - Use the values from `.env.example` as a guide.
 
 ## Smoke test checklist
@@ -105,7 +108,38 @@ Notes:
 Option A — Streamlit Community Cloud:
 
 1. Sign in with GitHub and create a new app from this repo.
-2. Set the entrypoint to `frontend/streamlit_app.py` and provide only frontend-safe secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, plus backend URL as either `[backend].url` (preferred) or `BACKEND_API_URL`.
+2. Set the entrypoint to `frontend/streamlit_app.py` and provide only frontend-safe secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY` or `SUPABASE_PUBLISHABLE_KEY`, plus backend URL as either `[backend].url` (preferred) or `BACKEND_API_URL`.
+
+   Current production backend URL:
+
+   ```text
+   https://ats-production-9787.up.railway.app
+   ```
+
+   Keep the hyphens. `https://atsproduction9787.up.railway.app` is not the deployed app.
+
+   Streamlit secrets can be top-level:
+
+   ```toml
+   BACKEND_API_URL = "https://ats-production-9787.up.railway.app"
+   SUPABASE_URL = "https://lzudxufewzruizbwnunb.supabase.co"
+   SUPABASE_ANON_KEY = "your_rotated_anon_or_publishable_key_here"
+   ```
+
+   Or include the nested layout too:
+
+   ```toml
+   BACKEND_API_URL = "https://ats-production-9787.up.railway.app"
+   SUPABASE_URL = "https://lzudxufewzruizbwnunb.supabase.co"
+   SUPABASE_ANON_KEY = "your_rotated_anon_or_publishable_key_here"
+
+   [backend]
+   url = "https://ats-production-9787.up.railway.app"
+
+   [supabase]
+   url = "https://lzudxufewzruizbwnunb.supabase.co"
+   anon_key = "your_rotated_anon_or_publishable_key_here"
+   ```
 
 Option B — Deploy the Streamlit container on Railway (use `frontend/Dockerfile`).
 

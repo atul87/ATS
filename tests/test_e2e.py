@@ -77,11 +77,15 @@ class AppServerController(str):
             import platform
 
             if platform.system() == "Windows":
-                subprocess.run(
-                    ["taskkill", "/F", "/T", "/PID", str(self.backend_proc.pid)],
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
+                self.backend_proc.terminate()
+                try:
+                    self.backend_proc.wait(timeout=5)
+                except Exception:
+                    subprocess.run(
+                        ["taskkill", "/F", "/T", "/PID", str(self.backend_proc.pid)],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
             else:
                 self.backend_proc.terminate()
                 try:

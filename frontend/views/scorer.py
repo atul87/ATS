@@ -77,11 +77,15 @@ def _render_upload_area(analysis_mode: str):
             help="Supported: PDF, DOC, DOCX (max 5 MB)",
             key="resume_upload",
         )
-        # Clear any previously cached analysis when a new file is uploaded
-        if resume_file and st.session_state.get("scorer_analysis"):
-            st.session_state.pop("scorer_analysis", None)
         if resume_file:
+            upload_signature = (resume_file.name, resume_file.size, resume_file.type)
+            if st.session_state.get("resume_upload_signature") != upload_signature:
+                st.session_state["resume_upload_signature"] = upload_signature
+                st.session_state.pop("scorer_analysis", None)
+                st.session_state.pop("scorer_pdf_bytes", None)
             st.success(f"✅ {resume_file.name} ({resume_file.size / 1024:.1f} KB)")
+        else:
+            st.session_state.pop("resume_upload_signature", None)
 
     jd_file: Optional[object] = None
     jd_text = ""
