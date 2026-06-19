@@ -95,9 +95,10 @@ See `DEPLOYMENT.md` for example dev/prod envs and recommended values.
 The automated suite runs in deterministic CI mode:
 
 - `MOCK_AUTH=true`
-- in-memory history store
-- local Groq parser fallback
-- lightweight deterministic model stubs for browser E2E startup
+- In-memory history store override for unit and integration tests
+- Isolated test database (`ats_history_test.db`) for browser E2E tests (automatically cleaned up at startup)
+- Local Groq parser fallback
+- Lightweight deterministic model stubs for browser E2E startup
 
 Generate ignored resume/JD fixtures when you want to inspect or reuse them locally:
 
