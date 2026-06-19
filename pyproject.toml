@@ -13,3 +13,6 @@ target-version = "py313"
 exclude = [
   "jupyter notebooks",
 ]
+
+[tool.vercel]
+entrypoint = "backend.main:app"
