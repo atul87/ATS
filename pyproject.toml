@@ -1,0 +1,15 @@
+[tool.black]
+line-length = 100
+target-version = ["py313"]
+extend-exclude = '''
+(
+  ^/jupyter\ notebooks/
+)
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+exclude = [
+  "jupyter notebooks",
+]

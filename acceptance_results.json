@@ -1,0 +1,61 @@
+{
+  "target_backend": "https://ats-production-9787.up.railway.app",
+  "target_frontend": "https://appapppy-ktwxupi73vqhjzweksze9d.streamlit.app",
+  "verified_at": "2026-06-03",
+  "tests": [
+    {
+      "test": "GitHub Actions main",
+      "status": "PASS",
+      "detail": "main branch workflow is green; latest checked successful run: 26866855725"
+    },
+    {
+      "test": "GitHub Actions v1.0.0 tag",
+      "status": "FAIL",
+      "detail": "run 26706701931 failed in e2e/test_history because the tag points to older commit 9b13850 with a brittle history-delete test; main fixed this at 7a0774a"
+    },
+    {
+      "test": "Railway Health",
+      "status": "PASS",
+      "detail": "GET /api/v1/health -> healthy, nlp_loaded=true, embedder_loaded=true"
+    },
+    {
+      "test": "Railway Version Metadata",
+      "status": "PASS",
+      "detail": "GET /version -> version=1.0.0, environment=production, commit=7a0774a"
+    },
+    {
+      "test": "Railway Build Metadata",
+      "status": "PASS",
+      "detail": "GET /build -> build_time=2026-05-31T12:00:00Z, environment=production, fast_mode=false"
+    },
+    {
+      "test": "Railway CORS",
+      "status": "PASS",
+      "detail": "Browser preflight from both observed Streamlit origins returns 200 and Access-Control-Allow-Origin matches"
+    },
+    {
+      "test": "Streamlit Frontend Access",
+      "status": "PARTIAL",
+      "detail": "Frontend URL redirects to share.streamlit.io/-/auth/app; app is private/auth-gated for unauthenticated checks"
+    },
+    {
+      "test": "Supabase Project",
+      "status": "PASS",
+      "detail": "project lzudxufewzruizbwnunb is ACTIVE_HEALTHY; public.analyses exists with RLS enabled"
+    },
+    {
+      "test": "Supabase Auth Email",
+      "status": "FAIL",
+      "detail": "mailer_autoconfirm=false; auth logs show only a recent /settings request, not a mailer error. Configure Custom SMTP or disable confirmation for demo-only signups"
+    },
+    {
+      "test": "Supabase Google OAuth",
+      "status": "FAIL",
+      "detail": "public auth settings show external.google=false; enable Google provider or remove/hide the Google login option"
+    }
+  ],
+  "passed": 6,
+  "failed": 3,
+  "partial": 1,
+  "total": 10
+}
